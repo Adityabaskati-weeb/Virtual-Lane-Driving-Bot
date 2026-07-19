@@ -3,6 +3,10 @@
 from control.pid import PIDController
 
 
+def _clamp(value: float, low: float, high: float) -> float:
+    return max(low, min(high, value))
+
+
 class Driver:
     """Lane-following driver using smoothed pixel error and PID steering."""
 
@@ -13,13 +17,21 @@ class Driver:
 
     def drive(self, lane_info: dict, dt: float) -> tuple[float, float]:
         """Return normalized steering and throttle commands."""
-        error = float(lane_info.get("error", 0.0))
+        raw_error = float(lane_info.get("error", 0.0))
+        obstacle = lane_info.get("obstacle")
+        effective_closeness = self._effective_obstacle_closeness(lane_info, obstacle)
+        avoidance_error = self._avoidance_error(lane_info, obstacle, effective_closeness)
+
+        lane_info["avoidance_error"] = avoidance_error
+        lane_info["effective_obstacle_closeness"] = effective_closeness
+
+        error = raw_error + avoidance_error
         smoothed_error = self._smooth_error(error)
         lane_info["smoothed_error"] = smoothed_error
 
         steering = self.steering_pid.update(smoothed_error, dt)
         base_throttle = max(0.28, 0.62 - abs(steering) * 0.30)
-        throttle = self._apply_obstacle_speed_limit(base_throttle, lane_info.get("obstacle"))
+        throttle = self._apply_obstacle_speed_limit(base_throttle, effective_closeness)
         return steering, throttle
 
     def reset(self) -> None:
@@ -35,14 +47,32 @@ class Driver:
             self.smoothed_error = alpha * error + (1.0 - alpha) * self.smoothed_error
         return self.smoothed_error
 
-    def _apply_obstacle_speed_limit(self, throttle: float, obstacle: dict | None) -> float:
+    def _effective_obstacle_closeness(self, lane_info: dict, obstacle: dict | None) -> float:
         if not obstacle or not obstacle.get("detected"):
-            return throttle
+            lane_info["obstacle_relevance"] = 0.0
+            return 0.0
+
         closeness = float(obstacle.get("closeness", 0.0))
-        if closeness >= 0.85:
-            return min(throttle, 0.10)
-        if closeness >= 0.65:
-            return min(throttle, 0.22)
-        if closeness >= 0.45:
-            return min(throttle, 0.38)
-        return min(throttle, 0.52)
+        lane_center_x = float(lane_info.get("lane_center_x", lane_info.get("display_lane_center_x", 0.0)))
+        obstacle_center_x = float(obstacle.get("center_x", lane_center_x))
+        lateral_distance = abs(obstacle_center_x - lane_center_x)
+
+        relevance = _clamp(1.0 - lateral_distance / 170.0, 0.0, 1.0)
+        lane_info["obstacle_relevance"] = relevance
+        return closeness * relevance
+
+    def _avoidance_error(self, lane_info: dict, obstacle: dict | None, effective_closeness: float) -> float:
+        if effective_closeness < 0.35 or not obstacle or not obstacle.get("detected"):
+            return 0.0
+
+        lane_center_x = float(lane_info.get("lane_center_x", lane_info.get("display_lane_center_x", 0.0)))
+        obstacle_center_x = float(obstacle.get("center_x", lane_center_x))
+        direction = -1.0 if obstacle_center_x >= lane_center_x else 1.0
+        return direction * min(45.0, 75.0 * effective_closeness)
+
+    def _apply_obstacle_speed_limit(self, throttle: float, effective_closeness: float) -> float:
+        if effective_closeness <= 0.15:
+            return throttle
+
+        braking = 0.78 * effective_closeness
+        return max(0.12, throttle * (1.0 - braking))
