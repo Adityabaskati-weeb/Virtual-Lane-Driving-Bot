@@ -6,6 +6,9 @@ import cv2
 import numpy as np
 
 
+ROAD_PROFILES = ("straight", "left-curve", "right-curve", "s-curve", "lane-shift")
+
+
 @dataclass(frozen=True)
 class RoadConfig:
     """Pixel-space settings for the simulated camera road."""
@@ -20,7 +23,10 @@ class RoadConfig:
 class VirtualRoad:
     """Generate camera frames with lane markings for OpenCV detection."""
 
-    def __init__(self, config: RoadConfig | None = None) -> None:
+    def __init__(self, profile: str = "s-curve", config: RoadConfig | None = None) -> None:
+        if profile not in ROAD_PROFILES:
+            raise ValueError(f"Unknown road profile: {profile}")
+        self.profile = profile
         self.config = config or RoadConfig()
 
     def render_camera_frame(self, width: int, height: int, car) -> np.ndarray:
@@ -34,10 +40,10 @@ class VirtualRoad:
 
         offset_px = int(car.lateral_offset * 78)
         heading_px = int(car.heading * 120)
-        curve_px = int(np.sin(car.distance * 0.045) * self.config.curve_strength)
+        curve_px, shift_px = self._profile_offsets(car.distance)
 
-        road_top_center = center_x + curve_px - heading_px // 2
-        road_bottom_center = center_x - offset_px - heading_px
+        road_top_center = center_x + curve_px + shift_px - heading_px // 2
+        road_bottom_center = center_x + shift_px - offset_px - heading_px
 
         left_bottom = road_bottom_center - self.config.lane_width_bottom // 2
         right_bottom = road_bottom_center + self.config.lane_width_bottom // 2
@@ -69,3 +75,19 @@ class VirtualRoad:
             cv2.line(frame, (marker_x, y), (marker_x, min(bottom_y, y + 22)), (210, 210, 210), marker_half)
 
         return frame
+
+    def _profile_offsets(self, distance: float) -> tuple[int, int]:
+        """Return top-road curve and whole-road shift offsets in pixels."""
+        strength = self.config.curve_strength
+        if self.profile == "straight":
+            return 0, 0
+        if self.profile == "left-curve":
+            return int(-strength * 1.20), 0
+        if self.profile == "right-curve":
+            return int(strength * 1.20), 0
+        if self.profile == "lane-shift":
+            shift = int(np.sin(distance * 0.035) * 58)
+            curve = int(np.sin(distance * 0.022) * strength * 0.35)
+            return curve, shift
+        curve = int(np.sin(distance * 0.045) * strength)
+        return curve, 0
