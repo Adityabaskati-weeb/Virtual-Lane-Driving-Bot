@@ -50,6 +50,7 @@ class Driver:
     def _effective_obstacle_closeness(self, lane_info: dict, obstacle: dict | None) -> float:
         if not obstacle or not obstacle.get("detected"):
             lane_info["obstacle_relevance"] = 0.0
+            lane_info["obstacle_lateral_distance_px"] = 0.0
             return 0.0
 
         closeness = float(obstacle.get("closeness", 0.0))
@@ -60,16 +61,22 @@ class Driver:
         relevance = _clamp(1.0 - lateral_distance / 170.0, 0.0, 1.0)
         lane_info["obstacle_relevance"] = relevance
         lane_info["obstacle_lane_center_x"] = lane_center_x
+        lane_info["obstacle_lateral_distance_px"] = lateral_distance
         return closeness * relevance
 
     def _avoidance_error(self, lane_info: dict, obstacle: dict | None, effective_closeness: float) -> float:
-        if effective_closeness < 0.35 or not obstacle or not obstacle.get("detected"):
+        if effective_closeness < 0.55 or not obstacle or not obstacle.get("detected"):
             return 0.0
 
         lane_center_x = self._lane_center_at_obstacle(lane_info, obstacle)
         obstacle_center_x = float(obstacle.get("center_x", lane_center_x))
-        direction = -1.0 if obstacle_center_x >= lane_center_x else 1.0
-        return direction * min(45.0, 75.0 * effective_closeness)
+        lateral_delta = obstacle_center_x - lane_center_x
+        if abs(lateral_delta) < 28.0:
+            return 0.0
+
+        direction = -1.0 if lateral_delta > 0 else 1.0
+        pressure = _clamp((effective_closeness - 0.55) / 0.45, 0.0, 1.0)
+        return direction * min(28.0, 34.0 * pressure)
 
     def _lane_center_at_obstacle(self, lane_info: dict, obstacle: dict | None) -> float:
         fallback = float(lane_info.get("lane_center_x", lane_info.get("display_lane_center_x", 0.0)))
@@ -94,8 +101,9 @@ class Driver:
         return x1 + t * (x2 - x1)
 
     def _apply_obstacle_speed_limit(self, throttle: float, effective_closeness: float) -> float:
-        if effective_closeness <= 0.15:
+        if effective_closeness <= 0.45:
             return throttle
 
-        braking = 0.78 * effective_closeness
-        return max(0.12, throttle * (1.0 - braking))
+        pressure = _clamp((effective_closeness - 0.45) / 0.55, 0.0, 1.0)
+        braking = 0.70 * pressure
+        return max(0.14, throttle * (1.0 - braking))
