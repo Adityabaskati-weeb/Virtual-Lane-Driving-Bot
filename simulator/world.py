@@ -40,15 +40,20 @@ class World:
         obstacle = lane_info.get("obstacle") or {}
         obstacle_status = "none"
         if obstacle.get("detected"):
-            obstacle_status = f"{obstacle.get('closeness', 0.0):.2f}"
+            closeness = obstacle.get("closeness", 0.0)
+            effective = lane_info.get("effective_obstacle_closeness", 0.0)
+            relevance = lane_info.get("obstacle_relevance", 0.0)
+            obstacle_status = f"{closeness:.2f}/{effective:.2f} r{relevance:.2f}"
 
         telemetry = [
             f"road: {lane_info.get('road', 'unknown')}",
+            f"obstacles: {lane_info.get('obstacle_mode', 'none')}",
             f"speed: {car.speed:05.2f}",
             f"offset: {car.lateral_offset:+.2f}",
             f"steering: {steering:+.2f}",
             f"throttle: {throttle:.2f}",
             f"obstacle: {obstacle_status}",
+            f"avoid err: {lane_info.get('avoidance_error', 0):+05.1f}px",
             f"lane error: {lane_info.get('error', 0):+06.1f}px",
             f"smooth err: {lane_info.get('smoothed_error', lane_info.get('error', 0)):+06.1f}px",
         ]
@@ -60,6 +65,7 @@ class World:
                     f"avg err: {metrics.average_abs_error:05.1f}px",
                     f"max err: {metrics.max_abs_error:05.1f}px",
                     f"departures: {metrics.lane_departures}",
+                    f"brake: {metrics.braking_time_ratio:.2f}",
                 ]
             )
         telemetry.append("ESC/Q: quit")
@@ -72,7 +78,7 @@ class World:
 
     def _draw_panel(self, lines: list[str]) -> None:
         panel_height = 22 + len(lines) * 22
-        panel = pygame.Surface((270, panel_height), pygame.SRCALPHA)
+        panel = pygame.Surface((320, panel_height), pygame.SRCALPHA)
         panel.fill((0, 0, 0, 150))
         self.screen.blit(panel, (16, 16))
         for index, line in enumerate(lines):
