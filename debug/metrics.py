@@ -13,6 +13,7 @@ class DrivingMetrics:
     elapsed: float = 0.0
     frames: int = 0
     lane_departures: int = 0
+    collisions: int = 0
     total_abs_error: float = 0.0
     max_abs_error: float = 0.0
     total_speed: float = 0.0
@@ -22,6 +23,7 @@ class DrivingMetrics:
     braking_frames: int = 0
     min_throttle: float | None = None
     _was_departed: bool = field(default=False, init=False)
+    _was_colliding: bool = field(default=False, init=False)
 
     def update(
         self,
@@ -31,6 +33,7 @@ class DrivingMetrics:
         throttle: float | None = None,
         obstacle: dict | None = None,
         braking_pressure: float = 0.0,
+        collision: bool = False,
     ) -> None:
         """Record one simulation frame."""
         abs_error = abs(float(lane_error))
@@ -51,6 +54,10 @@ class DrivingMetrics:
             self.obstacle_detections += 1
             self.total_obstacle_closeness += closeness
             self.max_obstacle_closeness = max(self.max_obstacle_closeness, closeness)
+
+        if collision and not self._was_colliding:
+            self.collisions += 1
+        self._was_colliding = collision
 
         departed = abs_error >= self.departure_threshold_px
         if departed and not self._was_departed:
@@ -93,6 +100,7 @@ class DrivingMetrics:
             f"avg lane error: {self.average_abs_error:.1f}px",
             f"max lane error: {self.max_abs_error:.1f}px",
             f"lane departures: {self.lane_departures}",
+            f"collisions: {self.collisions}",
             f"avg speed: {self.average_speed:.2f}",
             f"obstacle detections: {self.obstacle_detections}",
             f"avg obstacle closeness: {self.average_obstacle_closeness:.2f}",
@@ -107,11 +115,13 @@ class DrivingMetrics:
         road: str,
         obstacles: bool = False,
         obstacle_mode: str = "none",
+        condition: str = "normal",
     ) -> dict[str, float | int | str | bool]:
         """Return one CSV row for this run."""
         return {
             "detector": detector,
             "road": road,
+            "condition": condition,
             "obstacles": obstacles,
             "obstacle_mode": obstacle_mode,
             "duration_s": round(self.elapsed, 2),
@@ -119,6 +129,7 @@ class DrivingMetrics:
             "avg_lane_error_px": round(self.average_abs_error, 2),
             "max_lane_error_px": round(self.max_abs_error, 2),
             "lane_departures": self.lane_departures,
+            "collisions": self.collisions,
             "avg_speed": round(self.average_speed, 2),
             "obstacle_detections": self.obstacle_detections,
             "avg_obstacle_closeness": round(self.average_obstacle_closeness, 3),
@@ -136,11 +147,18 @@ def append_metrics_csv(
     road: str,
     obstacles: bool = False,
     obstacle_mode: str = "none",
+    condition: str = "normal",
 ) -> None:
     """Append one benchmark row to a CSV file, creating headers as needed."""
     output_path = Path(path)
     output_path.parent.mkdir(parents=True, exist_ok=True) if output_path.parent != Path(".") else None
-    row = metrics.to_row(detector=detector, road=road, obstacles=obstacles, obstacle_mode=obstacle_mode)
+    row = metrics.to_row(
+        detector=detector,
+        road=road,
+        obstacles=obstacles,
+        obstacle_mode=obstacle_mode,
+        condition=condition,
+    )
     write_header = not output_path.exists() or output_path.stat().st_size == 0
 
     with output_path.open("a", newline="", encoding="utf-8") as file:
