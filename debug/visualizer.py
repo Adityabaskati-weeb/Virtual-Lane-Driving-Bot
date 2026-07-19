@@ -44,6 +44,8 @@ class DebugVisualizer:
             tipLength=0.18,
         )
 
+        self._draw_obstacle(output, lane_info.get("obstacle"))
+
         cv2.putText(
             output,
             f"steer={steering:+.2f} throttle={throttle:.2f}",
@@ -63,3 +65,19 @@ class DebugVisualizer:
         while y < y_bottom:
             cv2.line(image, (x, y), (x, min(y + dash, y_bottom)), color, thickness)
             y += dash + gap
+
+    def _draw_obstacle(self, image, obstacle: dict | None) -> None:
+        if not obstacle or not obstacle.get("detected") or obstacle.get("bbox") is None:
+            return
+        x, y, width, height = obstacle["bbox"]
+        cv2.rectangle(image, (x, y), (x + width, y + height), (0, 0, 255), 3)
+        cv2.putText(
+            image,
+            f"obstacle {obstacle.get('closeness', 0.0):.2f}",
+            (x, max(24, y - 8)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (0, 0, 255),
+            2,
+            cv2.LINE_AA,
+        )
