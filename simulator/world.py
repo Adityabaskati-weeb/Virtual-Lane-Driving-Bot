@@ -44,6 +44,7 @@ class World:
             f"steering: {steering:+.2f}",
             f"throttle: {throttle:.2f}",
             f"lane error: {lane_info.get('error', 0):+06.1f}px",
+            f"smooth err: {lane_info.get('smoothed_error', lane_info.get('error', 0)):+06.1f}px",
         ]
         metrics = lane_info.get("metrics")
         if metrics is not None:
