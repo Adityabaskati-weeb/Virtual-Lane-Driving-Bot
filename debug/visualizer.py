@@ -89,44 +89,61 @@ class DebugVisualizer:
 
     def _draw_ego_car(self, image, center_x: int, steering: float) -> None:
         height, width = image.shape[:2]
-        base_y = height - 8
-        hood_top = int(height * 0.76)
-        car_half_width = int(width * 0.115)
-        nose_half_width = int(width * 0.045)
+        car_width = int(width * 0.13)
+        car_height = int(height * 0.18)
+        base_y = height - 30
+        top_y = base_y - car_height
+        left_x = center_x - car_width // 2
+        right_x = center_x + car_width // 2
 
-        hood = np.array(
+        shadow = np.array(
             [[
-                (center_x - car_half_width, base_y),
-                (center_x - nose_half_width, hood_top),
-                (center_x + nose_half_width, hood_top),
-                (center_x + car_half_width, base_y),
+                (left_x - 10, base_y + 8),
+                (right_x + 10, base_y + 8),
+                (right_x - 6, top_y + 30),
+                (left_x + 6, top_y + 30),
+            ]],
+            dtype=np.int32,
+        )
+        shadow_layer = image.copy()
+        cv2.fillPoly(shadow_layer, shadow, (0, 0, 0))
+        cv2.addWeighted(shadow_layer, 0.25, image, 0.75, 0, image)
+
+        body = np.array(
+            [[
+                (left_x, base_y),
+                (left_x + int(car_width * 0.18), top_y + int(car_height * 0.22)),
+                (center_x - int(car_width * 0.20), top_y),
+                (center_x + int(car_width * 0.20), top_y),
+                (right_x - int(car_width * 0.18), top_y + int(car_height * 0.22)),
+                (right_x, base_y),
             ]],
             dtype=np.int32,
         )
         overlay = image.copy()
-        cv2.fillPoly(overlay, hood, (32, 74, 138))
-        cv2.addWeighted(overlay, 0.70, image, 0.30, 0, image)
-        cv2.polylines(image, hood, True, (235, 235, 235), 2)
+        cv2.fillPoly(overlay, body, (38, 92, 165))
+        cv2.addWeighted(overlay, 0.86, image, 0.14, 0, image)
+        cv2.polylines(image, body, True, (230, 238, 245), 2)
 
-        windshield = np.array(
+        cabin = np.array(
             [[
-                (center_x - int(car_half_width * 0.42), hood_top + 8),
-                (center_x + int(car_half_width * 0.42), hood_top + 8),
-                (center_x + int(car_half_width * 0.24), hood_top + 38),
-                (center_x - int(car_half_width * 0.24), hood_top + 38),
+                (center_x - int(car_width * 0.28), top_y + int(car_height * 0.25)),
+                (center_x + int(car_width * 0.28), top_y + int(car_height * 0.25)),
+                (center_x + int(car_width * 0.20), top_y + int(car_height * 0.62)),
+                (center_x - int(car_width * 0.20), top_y + int(car_height * 0.62)),
             ]],
             dtype=np.int32,
         )
-        cv2.fillPoly(image, windshield, (30, 38, 52))
-        cv2.polylines(image, windshield, True, (120, 160, 210), 1)
+        cv2.fillPoly(image, cabin, (28, 38, 54))
+        cv2.polylines(image, cabin, True, (125, 170, 220), 1)
 
-        wheel_y = int(height * 0.93)
-        wheel_offset = int(car_half_width * 0.78)
-        wheel_angle = int(steering * 22)
-        for side in (-1, 1):
-            wheel_center = (center_x + side * wheel_offset, wheel_y)
-            cv2.ellipse(image, wheel_center, (12, 24), wheel_angle, 0, 360, (18, 18, 18), -1)
-            cv2.ellipse(image, wheel_center, (12, 24), wheel_angle, 0, 360, (90, 90, 90), 2)
+        hood_line_y = top_y + int(car_height * 0.72)
+        cv2.line(image, (left_x + 12, hood_line_y), (right_x - 12, hood_line_y), (74, 130, 205), 2)
+        cv2.circle(image, (left_x + 18, base_y - 16), 5, (70, 215, 255), -1)
+        cv2.circle(image, (right_x - 18, base_y - 16), 5, (70, 215, 255), -1)
 
-        cv2.circle(image, (center_x - int(car_half_width * 0.55), base_y - 22), 7, (70, 210, 255), -1)
-        cv2.circle(image, (center_x + int(car_half_width * 0.55), base_y - 22), 7, (70, 210, 255), -1)
+        wheel_y = base_y - int(car_height * 0.18)
+        wheel_angle = int(steering * 24)
+        for x in (left_x + 6, right_x - 6):
+            cv2.ellipse(image, (x, wheel_y), (8, 18), wheel_angle, 0, 360, (18, 18, 18), -1)
+            cv2.ellipse(image, (x, wheel_y), (8, 18), wheel_angle, 0, 360, (95, 95, 95), 1)
