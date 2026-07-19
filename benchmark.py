@@ -52,6 +52,7 @@ def run_one(
             dt,
             throttle=throttle,
             obstacle=lane_info.get("obstacle"),
+            braking_pressure=lane_info.get("obstacle_braking_pressure", 0.0),
         )
 
     return metrics
