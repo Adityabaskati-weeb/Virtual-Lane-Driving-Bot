@@ -99,7 +99,13 @@ def main() -> None:
         for line in metrics.summary_lines():
             print(line)
         if args.save_metrics:
-            append_metrics_csv(args.save_metrics, metrics, detector=args.detector, road=args.road)
+            append_metrics_csv(
+                args.save_metrics,
+                metrics,
+                detector=args.detector,
+                road=args.road,
+                obstacles=args.obstacles,
+            )
             print(f"metrics saved: {args.save_metrics}")
 
 
