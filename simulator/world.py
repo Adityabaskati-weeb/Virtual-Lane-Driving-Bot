@@ -44,8 +44,18 @@ class World:
             f"steering: {steering:+.2f}",
             f"throttle: {throttle:.2f}",
             f"lane error: {lane_info.get('error', 0):+06.1f}px",
-            "ESC/Q: quit",
         ]
+        metrics = lane_info.get("metrics")
+        if metrics is not None:
+            telemetry.extend(
+                [
+                    f"time: {metrics.elapsed:05.1f}s",
+                    f"avg err: {metrics.average_abs_error:05.1f}px",
+                    f"max err: {metrics.max_abs_error:05.1f}px",
+                    f"departures: {metrics.lane_departures}",
+                ]
+            )
+        telemetry.append("ESC/Q: quit")
         self._draw_panel(telemetry)
         pygame.display.flip()
 
@@ -54,7 +64,8 @@ class World:
         pygame.quit()
 
     def _draw_panel(self, lines: list[str]) -> None:
-        panel = pygame.Surface((250, 176), pygame.SRCALPHA)
+        panel_height = 22 + len(lines) * 22
+        panel = pygame.Surface((270, panel_height), pygame.SRCALPHA)
         panel.fill((0, 0, 0, 150))
         self.screen.blit(panel, (16, 16))
         for index, line in enumerate(lines):
