@@ -8,7 +8,12 @@ class DebugVisualizer:
 
     def draw(self, frame_bgr, lane_info: dict, steering: float, throttle: float):
         """Return a copy of the frame with lane-following overlays."""
-        output = frame_bgr.copy()
+        output = lane_info.get("lane_overlay")
+        if output is None:
+            output = frame_bgr.copy()
+        else:
+            output = output.copy()
+
         height = output.shape[0]
         y_bottom = int(height * 0.92)
         y_top = int(height * 0.55)
@@ -23,7 +28,7 @@ class DebugVisualizer:
         car_center = int(lane_info.get("car_center_x", output.shape[1] // 2))
         lane_center = int(lane_info.get("lane_center_x", car_center))
         cv2.line(output, (car_center, y_bottom), (car_center, y_top), (255, 0, 0), 2)
-        cv2.line(output, (lane_center, y_bottom), (lane_center, y_top), (0, 255, 255), 2)
+        cv2.line(output, (lane_center, y_bottom), (lane_center, y_top), (0, 255, 255), 3)
         cv2.arrowedLine(
             output,
             (car_center, y_bottom - 28),
