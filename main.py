@@ -7,7 +7,7 @@ from debug.metrics import DrivingMetrics, append_metrics_csv
 from debug.visualizer import DebugVisualizer
 from simulator.camera import VirtualCamera
 from simulator.car import Car
-from simulator.road import ROAD_PROFILES, VirtualRoad
+from simulator.road import OBSTACLE_MODES, ROAD_PROFILES, VirtualRoad
 from simulator.world import World
 from vision.lane_detector_advanced import AdvancedLaneDetector
 from vision.lane_detector_basic import BasicLaneDetector
@@ -38,7 +38,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--obstacles",
         action="store_true",
-        help="Render and detect red lane obstacles with speed control.",
+        help="Shortcut for --obstacle-mode single.",
+    )
+    parser.add_argument(
+        "--obstacle-mode",
+        choices=OBSTACLE_MODES,
+        default="none",
+        help="Obstacle scenario to render and detect.",
     )
     parser.add_argument(
         "--duration",
@@ -60,15 +66,25 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def resolve_obstacle_mode(args: argparse.Namespace) -> str:
+    """Resolve legacy obstacle flag and explicit obstacle mode into one value."""
+    if args.obstacles and args.obstacle_mode == "none":
+        return "single"
+    return args.obstacle_mode
+
+
 def main() -> None:
     """Run the virtual lane-following bot."""
     args = parse_args()
+    obstacle_mode = resolve_obstacle_mode(args)
+    obstacles_enabled = obstacle_mode != "none"
+
     world = World()
-    road = VirtualRoad(profile=args.road, obstacles=args.obstacles)
+    road = VirtualRoad(profile=args.road, obstacle_mode=obstacle_mode)
     car = Car()
     camera = VirtualCamera()
     detector = build_detector(args.detector)
-    obstacle_detector = ObstacleDetector() if args.obstacles else None
+    obstacle_detector = ObstacleDetector() if obstacles_enabled else None
     driver = Driver()
     visualizer = DebugVisualizer()
     metrics = DrivingMetrics(departure_threshold_px=args.departure_threshold)
@@ -82,11 +98,18 @@ def main() -> None:
             frame = camera.capture(road, car)
             lane_info = detector.detect(frame)
             lane_info["road"] = road.profile
+            lane_info["obstacle_mode"] = obstacle_mode
             if obstacle_detector is not None:
                 lane_info["obstacle"] = obstacle_detector.detect(frame)
             steering, throttle = driver.drive(lane_info, dt)
             car.update(steering, throttle, dt)
-            metrics.update(lane_info.get("error", 0.0), car.speed, dt)
+            metrics.update(
+                lane_info.get("error", 0.0),
+                car.speed,
+                dt,
+                throttle=throttle,
+                obstacle=lane_info.get("obstacle"),
+            )
             lane_info["metrics"] = metrics
             debug_frame = visualizer.draw(frame, lane_info, steering, throttle)
             world.render(debug_frame, car, steering, throttle, lane_info)
@@ -104,7 +127,8 @@ def main() -> None:
                 metrics,
                 detector=args.detector,
                 road=args.road,
-                obstacles=args.obstacles,
+                obstacles=obstacles_enabled,
+                obstacle_mode=obstacle_mode,
             )
             print(f"metrics saved: {args.save_metrics}")
 
