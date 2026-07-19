@@ -8,7 +8,7 @@ class ObstacleDetector:
     """Detect red block obstacles rendered in the lane."""
 
     def detect(self, frame_bgr: np.ndarray) -> dict:
-        """Return obstacle bounding box and normalized closeness."""
+        """Return obstacle bounding box, center point, and normalized closeness."""
         height, width = frame_bgr.shape[:2]
         hsv = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HSV)
 
@@ -56,6 +56,10 @@ class ObstacleDetector:
         return {
             "detected": True,
             "bbox": (x, y, box_w, box_h),
+            "center_x": x + box_w / 2.0,
+            "center_y": y + box_h / 2.0,
+            "width": box_w,
+            "height": box_h,
             "closeness": closeness,
             "area": area,
             "mask": mask,
