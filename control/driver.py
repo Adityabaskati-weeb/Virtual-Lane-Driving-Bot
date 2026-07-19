@@ -31,7 +31,8 @@ class Driver:
 
         steering = self.steering_pid.update(smoothed_error, dt)
         base_throttle = max(0.28, 0.62 - abs(steering) * 0.30)
-        throttle = self._apply_obstacle_speed_limit(base_throttle, effective_closeness)
+        throttle, braking_pressure = self._apply_obstacle_speed_limit(base_throttle, effective_closeness)
+        lane_info["obstacle_braking_pressure"] = braking_pressure
         return steering, throttle
 
     def reset(self) -> None:
@@ -100,10 +101,10 @@ class Driver:
         t = (y - y1) / (y2 - y1)
         return x1 + t * (x2 - x1)
 
-    def _apply_obstacle_speed_limit(self, throttle: float, effective_closeness: float) -> float:
+    def _apply_obstacle_speed_limit(self, throttle: float, effective_closeness: float) -> tuple[float, float]:
         if effective_closeness <= 0.45:
-            return throttle
+            return throttle, 0.0
 
         pressure = _clamp((effective_closeness - 0.45) / 0.55, 0.0, 1.0)
         braking = 0.70 * pressure
-        return max(0.14, throttle * (1.0 - braking))
+        return max(0.14, throttle * (1.0 - braking)), pressure
