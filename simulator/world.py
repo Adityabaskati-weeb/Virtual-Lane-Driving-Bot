@@ -47,12 +47,14 @@ class World:
 
         telemetry = [
             f"road: {lane_info.get('road', 'unknown')}",
+            f"condition: {lane_info.get('condition', 'normal')}",
             f"obstacles: {lane_info.get('obstacle_mode', 'none')}",
             f"speed: {car.speed:05.2f}",
             f"offset: {car.lateral_offset:+.2f}",
             f"steering: {steering:+.2f}",
             f"throttle: {throttle:.2f}",
             f"obstacle: {obstacle_status}",
+            f"collision: {bool(lane_info.get('collision_risk', False))}",
             f"avoid err: {lane_info.get('avoidance_error', 0):+05.1f}px",
             f"lane error: {lane_info.get('error', 0):+06.1f}px",
             f"smooth err: {lane_info.get('smoothed_error', lane_info.get('error', 0)):+06.1f}px",
@@ -65,6 +67,7 @@ class World:
                     f"avg err: {metrics.average_abs_error:05.1f}px",
                     f"max err: {metrics.max_abs_error:05.1f}px",
                     f"departures: {metrics.lane_departures}",
+                    f"collisions: {metrics.collisions}",
                     f"brake: {metrics.braking_time_ratio:.2f}",
                 ]
             )
@@ -78,7 +81,7 @@ class World:
 
     def _draw_panel(self, lines: list[str]) -> None:
         panel_height = 22 + len(lines) * 22
-        panel = pygame.Surface((320, panel_height), pygame.SRCALPHA)
+        panel = pygame.Surface((340, panel_height), pygame.SRCALPHA)
         panel.fill((0, 0, 0, 150))
         self.screen.blit(panel, (16, 16))
         for index, line in enumerate(lines):
