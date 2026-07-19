@@ -45,6 +45,12 @@ Run a timed benchmark and print metrics when it ends:
 python main.py --detector advanced --road lane-shift --duration 60
 ```
 
+Save benchmark metrics to CSV:
+
+```bash
+python main.py --detector advanced --road lane-shift --duration 30 --save-metrics results.csv
+```
+
 Use a custom lane-departure threshold in pixels:
 
 ```bash
@@ -117,7 +123,7 @@ Virtual road -> camera frame -> lane detection -> lane error -> PID steering -> 
 
 ## Metrics
 
-The app tracks:
+The app tracks and can export:
 
 - elapsed time
 - frame count
@@ -125,10 +131,11 @@ The app tracks:
 - maximum lane error
 - lane departures
 - average speed
+- detector and road scenario
 
 ## Next Improvements
 
+- Add a `benchmark.py` runner for all road scenarios.
 - Tune steering smoothness and lane-error filtering.
 - Add obstacle detection and speed control.
-- Save benchmark results to CSV.
 - Later, port the same control loop to CARLA or another 3D simulator.
