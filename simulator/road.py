@@ -7,6 +7,7 @@ import numpy as np
 
 
 ROAD_PROFILES = ("straight", "left-curve", "right-curve", "s-curve", "lane-shift")
+OBSTACLE_MODES = ("none", "single", "frequent", "side")
 
 
 @dataclass(frozen=True)
@@ -23,11 +24,22 @@ class RoadConfig:
 class VirtualRoad:
     """Generate camera frames with lane markings for OpenCV detection."""
 
-    def __init__(self, profile: str = "s-curve", obstacles: bool = False, config: RoadConfig | None = None) -> None:
+    def __init__(
+        self,
+        profile: str = "s-curve",
+        obstacles: bool = False,
+        obstacle_mode: str = "none",
+        config: RoadConfig | None = None,
+    ) -> None:
         if profile not in ROAD_PROFILES:
             raise ValueError(f"Unknown road profile: {profile}")
+        if obstacles and obstacle_mode == "none":
+            obstacle_mode = "single"
+        if obstacle_mode not in OBSTACLE_MODES:
+            raise ValueError(f"Unknown obstacle mode: {obstacle_mode}")
         self.profile = profile
-        self.obstacles = obstacles
+        self.obstacle_mode = obstacle_mode
+        self.obstacles = obstacle_mode != "none"
         self.config = config or RoadConfig()
 
     def render_camera_frame(self, width: int, height: int, car) -> np.ndarray:
@@ -105,11 +117,13 @@ class VirtualRoad:
         horizon_y: int,
         bottom_y: int,
     ) -> None:
-        cycle = 120.0
+        cycle = self._obstacle_cycle()
         progress = (distance % cycle) / cycle
         t = 0.18 + 0.72 * progress
         y = int(horizon_y * (1 - t) + bottom_y * t)
-        x = int(road_top_center * (1 - t) + road_bottom_center * t)
+        lane_center_x = int(road_top_center * (1 - t) + road_bottom_center * t)
+        lane_width = int(self.config.lane_width_top * (1 - t) + self.config.lane_width_bottom * t)
+        x = lane_center_x + self._obstacle_lateral_offset(distance, lane_width)
         size = int(14 + 34 * t)
 
         top_left = (x - size, y - size)
@@ -117,3 +131,16 @@ class VirtualRoad:
         cv2.rectangle(frame, top_left, bottom_right, (30, 30, 220), -1)
         cv2.rectangle(frame, top_left, bottom_right, (255, 255, 255), 2)
         cv2.line(frame, (x - size, y), (x + size, y), (255, 255, 255), 2)
+
+    def _obstacle_cycle(self) -> float:
+        if self.obstacle_mode == "frequent":
+            return 70.0
+        if self.obstacle_mode == "side":
+            return 95.0
+        return 120.0
+
+    def _obstacle_lateral_offset(self, distance: float, lane_width: int) -> int:
+        if self.obstacle_mode != "side":
+            return 0
+        side = 1.0 if np.sin(distance * 0.045) >= 0.0 else -1.0
+        return int(side * lane_width * 0.28)
