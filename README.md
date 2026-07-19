@@ -5,6 +5,7 @@ A virtual lane-driving bot that combines:
 - OpenCV lane detection
 - a simulated driving world
 - steering and throttle control
+- driving performance metrics
 
 The project runs in a lightweight `pygame` window. The bot sees a synthetic road through a virtual camera, detects lane position with OpenCV, and uses PID steering to stay near the lane center.
 
@@ -36,6 +37,18 @@ Detector and road options can be combined:
 
 ```bash
 python main.py --detector advanced --road lane-shift
+```
+
+Run a timed benchmark and print metrics when it ends:
+
+```bash
+python main.py --detector advanced --road lane-shift --duration 60
+```
+
+Use a custom lane-departure threshold in pixels:
+
+```bash
+python main.py --road s-curve --duration 30 --departure-threshold 70
 ```
 
 Controls:
@@ -70,6 +83,7 @@ Virtual-Lane-Driving-Bot/
 
   debug/
     __init__.py
+    metrics.py
     visualizer.py
 
   assets/
@@ -80,17 +94,17 @@ Virtual-Lane-Driving-Bot/
 
 ## Module Responsibilities
 
-- `main.py`: connects simulator, camera, lane detector, driver, and debug overlay.
+- `main.py`: connects simulator, camera, lane detector, driver, metrics, and debug overlay.
 - `simulator/`: virtual road generation, car motion, window rendering, and camera capture.
 - `vision/`: OpenCV lane detection modules inspired by the referenced lane detection repos.
 - `control/`: PID steering and throttle decisions.
-- `debug/`: visual overlays for lane lines, lane center, steering, and telemetry.
+- `debug/`: metrics and visual overlays for lane lines, lane center, steering, and telemetry.
 - `assets/roads/`: road maps, lane textures, or generated driving scenes.
 
 ## Current Driving Loop
 
 ```text
-Virtual road -> camera frame -> lane detection -> lane error -> PID steering -> car update
+Virtual road -> camera frame -> lane detection -> lane error -> PID steering -> car update -> metrics
 ```
 
 ## Road Scenarios
@@ -101,9 +115,20 @@ Virtual road -> camera frame -> lane detection -> lane error -> PID steering -> 
 - `s-curve`: alternating left/right curve.
 - `lane-shift`: whole lane shifts sideways over time.
 
+## Metrics
+
+The app tracks:
+
+- elapsed time
+- frame count
+- average absolute lane error
+- maximum lane error
+- lane departures
+- average speed
+
 ## Next Improvements
 
-- Add driving metrics: average lane error, max lane error, lane departures, and time survived.
 - Tune steering smoothness and lane-error filtering.
 - Add obstacle detection and speed control.
+- Save benchmark results to CSV.
 - Later, port the same control loop to CARLA or another 3D simulator.
