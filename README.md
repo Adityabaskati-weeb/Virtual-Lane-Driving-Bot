@@ -7,6 +7,7 @@ A virtual lane-driving bot that combines:
 - a simulated driving world
 - steering and throttle control
 - driving performance metrics
+- optional demo video recording
 
 The project runs in a lightweight `pygame` window. The bot sees a synthetic road through a virtual camera, detects lane position with OpenCV, detects red lane obstacles when enabled, smooths the lane error, and uses PID steering plus obstacle-aware throttle control.
 
@@ -76,6 +77,12 @@ Detector, road, obstacle, and condition options can be combined:
 
 ```bash
 python main.py --detector advanced --road lane-shift --condition noisy --obstacle-mode side
+```
+
+Record the debug camera view to an AVI demo file:
+
+```bash
+python main.py --road lane-shift --obstacle-mode side --condition noisy --duration 20 --record demo.avi
 ```
 
 Run a timed benchmark and print metrics when it ends:
@@ -170,7 +177,7 @@ Virtual-Lane-Driving-Bot/
 ## Module Responsibilities
 
 - `benchmark.py`: runs headless benchmarks across road scenarios, road conditions, and obstacle modes, then exports CSV results.
-- `main.py`: connects simulator, camera, lane detector, obstacle detector, driver, metrics, and debug overlay.
+- `main.py`: connects simulator, camera, lane detector, obstacle detector, driver, metrics, debug overlay, and optional AVI recording.
 - `simulator/`: virtual road generation, harder visual road conditions, obstacle rendering, car motion, window rendering, and camera capture.
 - `vision/`: OpenCV lane and obstacle detection modules inspired by the referenced lane detection repos.
 - `control/`: smoothed lane-error steering, PID control, obstacle-aware speed control, avoidance bias, and throttle decisions.
@@ -212,7 +219,6 @@ The app tracks and can export:
 
 ## Next Improvements
 
-- Save screenshots or demo video for the README.
 - Add detector comparison reports for `basic` versus `advanced`.
-- Add replay/video export for demo generation.
+- Add screenshots and benchmark tables to the README.
 - Later, port the same control loop to CARLA or another 3D simulator.
