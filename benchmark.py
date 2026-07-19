@@ -111,7 +111,13 @@ def main() -> None:
             departure_threshold=args.departure_threshold,
             obstacles=args.obstacles,
         )
-        append_metrics_csv(str(output_path), metrics, detector=args.detector, road=road_name)
+        append_metrics_csv(
+            str(output_path),
+            metrics,
+            detector=args.detector,
+            road=road_name,
+            obstacles=args.obstacles,
+        )
         print(
             f"{road_name},"
             f"{metrics.average_abs_error:.1f},"
