@@ -15,11 +15,27 @@ pip install -r requirements.txt
 python main.py
 ```
 
-The advanced sliding-window detector is used by default. You can compare both pipelines:
+The advanced detector and `s-curve` road are used by default. You can compare detector pipelines:
 
 ```bash
 python main.py --detector advanced
 python main.py --detector basic
+```
+
+You can run different road scenarios:
+
+```bash
+python main.py --road straight
+python main.py --road left-curve
+python main.py --road right-curve
+python main.py --road s-curve
+python main.py --road lane-shift
+```
+
+Detector and road options can be combined:
+
+```bash
+python main.py --detector advanced --road lane-shift
 ```
 
 Controls:
@@ -77,15 +93,17 @@ Virtual-Lane-Driving-Bot/
 Virtual road -> camera frame -> lane detection -> lane error -> PID steering -> car update
 ```
 
-## Current Detector Pipeline
+## Road Scenarios
 
-```text
-camera frame -> perspective transform -> white lane mask -> histogram bases -> sliding windows -> polynomial fits -> lane center
-```
+- `straight`: simple baseline road.
+- `left-curve`: constant left bend.
+- `right-curve`: constant right bend.
+- `s-curve`: alternating left/right curve.
+- `lane-shift`: whole lane shifts sideways over time.
 
 ## Next Improvements
 
+- Add driving metrics: average lane error, max lane error, lane departures, and time survived.
 - Tune steering smoothness and lane-error filtering.
-- Add generated road maps in `assets/roads/`.
 - Add obstacle detection and speed control.
 - Later, port the same control loop to CARLA or another 3D simulator.
