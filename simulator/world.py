@@ -37,12 +37,18 @@ class World:
         surface = pygame.transform.smoothscale(surface, (self.width, self.height))
         self.screen.blit(surface, (0, 0))
 
+        obstacle = lane_info.get("obstacle") or {}
+        obstacle_status = "none"
+        if obstacle.get("detected"):
+            obstacle_status = f"{obstacle.get('closeness', 0.0):.2f}"
+
         telemetry = [
             f"road: {lane_info.get('road', 'unknown')}",
             f"speed: {car.speed:05.2f}",
             f"offset: {car.lateral_offset:+.2f}",
             f"steering: {steering:+.2f}",
             f"throttle: {throttle:.2f}",
+            f"obstacle: {obstacle_status}",
             f"lane error: {lane_info.get('error', 0):+06.1f}px",
             f"smooth err: {lane_info.get('smoothed_error', lane_info.get('error', 0)):+06.1f}px",
         ]
