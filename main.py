@@ -11,6 +11,7 @@ from simulator.road import ROAD_PROFILES, VirtualRoad
 from simulator.world import World
 from vision.lane_detector_advanced import AdvancedLaneDetector
 from vision.lane_detector_basic import BasicLaneDetector
+from vision.obstacle_detector import ObstacleDetector
 
 
 def build_detector(name: str):
@@ -33,6 +34,11 @@ def parse_args() -> argparse.Namespace:
         choices=ROAD_PROFILES,
         default="s-curve",
         help="Virtual road scenario to run.",
+    )
+    parser.add_argument(
+        "--obstacles",
+        action="store_true",
+        help="Render and detect red lane obstacles with speed control.",
     )
     parser.add_argument(
         "--duration",
@@ -58,10 +64,11 @@ def main() -> None:
     """Run the virtual lane-following bot."""
     args = parse_args()
     world = World()
-    road = VirtualRoad(profile=args.road)
+    road = VirtualRoad(profile=args.road, obstacles=args.obstacles)
     car = Car()
     camera = VirtualCamera()
     detector = build_detector(args.detector)
+    obstacle_detector = ObstacleDetector() if args.obstacles else None
     driver = Driver()
     visualizer = DebugVisualizer()
     metrics = DrivingMetrics(departure_threshold_px=args.departure_threshold)
@@ -75,6 +82,8 @@ def main() -> None:
             frame = camera.capture(road, car)
             lane_info = detector.detect(frame)
             lane_info["road"] = road.profile
+            if obstacle_detector is not None:
+                lane_info["obstacle"] = obstacle_detector.detect(frame)
             steering, throttle = driver.drive(lane_info, dt)
             car.update(steering, throttle, dt)
             metrics.update(lane_info.get("error", 0.0), car.speed, dt)
