@@ -11,6 +11,7 @@ from simulator.road import ROAD_PROFILES, VirtualRoad
 from simulator.world import HeadlessWorld
 from vision.lane_detector_advanced import AdvancedLaneDetector
 from vision.lane_detector_basic import BasicLaneDetector
+from vision.obstacle_detector import ObstacleDetector
 
 
 def build_detector(name: str):
@@ -20,13 +21,20 @@ def build_detector(name: str):
     return AdvancedLaneDetector()
 
 
-def run_one(detector_name: str, road_name: str, duration: float, departure_threshold: float) -> DrivingMetrics:
+def run_one(
+    detector_name: str,
+    road_name: str,
+    duration: float,
+    departure_threshold: float,
+    obstacles: bool,
+) -> DrivingMetrics:
     """Run one headless benchmark scenario."""
     world = HeadlessWorld()
-    road = VirtualRoad(profile=road_name)
+    road = VirtualRoad(profile=road_name, obstacles=obstacles)
     car = Car()
     camera = VirtualCamera()
     detector = build_detector(detector_name)
+    obstacle_detector = ObstacleDetector() if obstacles else None
     driver = Driver()
     metrics = DrivingMetrics(departure_threshold_px=departure_threshold)
 
@@ -34,6 +42,8 @@ def run_one(detector_name: str, road_name: str, duration: float, departure_thres
         dt = world.tick()
         frame = camera.capture(road, car)
         lane_info = detector.detect(frame)
+        if obstacle_detector is not None:
+            lane_info["obstacle"] = obstacle_detector.detect(frame)
         steering, throttle = driver.drive(lane_info, dt)
         car.update(steering, throttle, dt)
         metrics.update(lane_info.get("error", 0.0), car.speed, dt)
@@ -73,6 +83,11 @@ def parse_args() -> argparse.Namespace:
         default=list(ROAD_PROFILES),
         help="Road scenarios to benchmark.",
     )
+    parser.add_argument(
+        "--obstacles",
+        action="store_true",
+        help="Benchmark with red lane obstacles and speed control enabled.",
+    )
     return parser.parse_args()
 
 
@@ -82,7 +97,10 @@ def main() -> None:
     if output_path.exists():
         output_path.unlink()
 
-    print(f"benchmark detector={args.detector} duration={args.duration:.1f}s output={output_path}")
+    print(
+        f"benchmark detector={args.detector} duration={args.duration:.1f}s "
+        f"obstacles={args.obstacles} output={output_path}"
+    )
     print("road,avg_error,max_error,departures,avg_speed")
 
     for road_name in args.roads:
@@ -91,6 +109,7 @@ def main() -> None:
             road_name=road_name,
             duration=args.duration,
             departure_threshold=args.departure_threshold,
+            obstacles=args.obstacles,
         )
         append_metrics_csv(str(output_path), metrics, detector=args.detector, road=road_name)
         print(
