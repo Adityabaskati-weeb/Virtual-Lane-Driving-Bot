@@ -34,6 +34,23 @@ python main.py --road s-curve
 python main.py --road lane-shift
 ```
 
+Test harder visual road conditions:
+
+```bash
+python main.py --road lane-shift --condition faded
+python main.py --road lane-shift --condition noisy
+python main.py --road lane-shift --condition night
+python main.py --road lane-shift --condition missing-lanes
+```
+
+Road conditions:
+
+- `normal`: clear lane paint and normal brightness.
+- `faded`: lower-contrast lane paint.
+- `noisy`: camera noise and slight blur.
+- `night`: darker scene with dimmer lane paint.
+- `missing-lanes`: broken outer lane boundaries.
+
 Enable red obstacle detection and obstacle-aware speed/avoidance control:
 
 ```bash
@@ -55,10 +72,10 @@ Obstacle modes:
 - `frequent`: centered obstacles appear more often.
 - `side`: obstacles appear offset toward one side of the lane so the bot can test relevance and avoidance.
 
-Detector, road, and obstacle options can be combined:
+Detector, road, obstacle, and condition options can be combined:
 
 ```bash
-python main.py --detector advanced --road lane-shift --obstacle-mode side
+python main.py --detector advanced --road lane-shift --condition noisy --obstacle-mode side
 ```
 
 Run a timed benchmark and print metrics when it ends:
@@ -86,6 +103,13 @@ Benchmark with obstacles enabled:
 python benchmark.py --duration 30 --obstacles --output obstacle_benchmark.csv
 python benchmark.py --duration 30 --obstacle-mode frequent --output frequent_obstacle_benchmark.csv
 python benchmark.py --duration 30 --obstacle-mode side --output side_obstacle_benchmark.csv
+```
+
+Benchmark harder visual conditions:
+
+```bash
+python benchmark.py --duration 30 --conditions faded noisy night missing-lanes --output condition_benchmark.csv
+python benchmark.py --duration 30 --obstacle-mode side --conditions normal noisy missing-lanes --output robust_obstacle_benchmark.csv
 ```
 
 Run selected roads only:
@@ -145,12 +169,12 @@ Virtual-Lane-Driving-Bot/
 
 ## Module Responsibilities
 
-- `benchmark.py`: runs headless benchmarks across road scenarios and exports CSV results.
+- `benchmark.py`: runs headless benchmarks across road scenarios, road conditions, and obstacle modes, then exports CSV results.
 - `main.py`: connects simulator, camera, lane detector, obstacle detector, driver, metrics, and debug overlay.
-- `simulator/`: virtual road generation, obstacle rendering, car motion, window rendering, and camera capture.
+- `simulator/`: virtual road generation, harder visual road conditions, obstacle rendering, car motion, window rendering, and camera capture.
 - `vision/`: OpenCV lane and obstacle detection modules inspired by the referenced lane detection repos.
 - `control/`: smoothed lane-error steering, PID control, obstacle-aware speed control, avoidance bias, and throttle decisions.
-- `debug/`: metrics and visual overlays for lane lines, lane center, obstacles, steering, and telemetry.
+- `debug/`: metrics and visual overlays for lane lines, lane center, obstacles, steering, collisions, and telemetry.
 - `assets/roads/`: road maps, lane textures, or generated driving scenes.
 
 ## Current Driving Loop
@@ -176,8 +200,10 @@ The app tracks and can export:
 - average absolute lane error
 - maximum lane error
 - lane departures
+- collision count
 - average speed
 - detector and road scenario
+- road condition
 - obstacle mode
 - obstacle detection count
 - average and maximum obstacle closeness
@@ -187,6 +213,6 @@ The app tracks and can export:
 ## Next Improvements
 
 - Save screenshots or demo video for the README.
-- Add harder road conditions like missing lanes, noisy paint, and night mode.
-- Add collision counting for obstacles.
+- Add detector comparison reports for `basic` versus `advanced`.
+- Add replay/video export for demo generation.
 - Later, port the same control loop to CARLA or another 3D simulator.
