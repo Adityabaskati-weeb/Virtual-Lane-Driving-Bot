@@ -1,6 +1,9 @@
 """Entry point for the virtual lane driving bot."""
 
 import argparse
+from pathlib import Path
+
+import cv2
 
 from control.driver import Driver
 from debug.metrics import DrivingMetrics, append_metrics_csv
@@ -69,6 +72,11 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Optional CSV path to append benchmark metrics after the run.",
     )
+    parser.add_argument(
+        "--record",
+        default="",
+        help="Optional AVI path to record the debug camera view.",
+    )
     return parser.parse_args()
 
 
@@ -90,6 +98,19 @@ def is_collision_risk(lane_info: dict, throttle: float) -> bool:
     return closeness >= 0.92 and effective_closeness >= 0.80 and lateral_distance <= 32.0 and throttle > 0.24
 
 
+def open_video_writer(path: str, width: int, height: int, fps: int):
+    """Create an OpenCV AVI writer for the debug view."""
+    if not path:
+        return None
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True) if output_path.parent != Path(".") else None
+    fourcc = cv2.VideoWriter_fourcc(*"XVID")
+    writer = cv2.VideoWriter(str(output_path), fourcc, float(fps), (width, height))
+    if not writer.isOpened():
+        raise RuntimeError(f"Could not open video writer for {path}")
+    return writer
+
+
 def main() -> None:
     """Run the virtual lane-following bot."""
     args = parse_args()
@@ -105,6 +126,7 @@ def main() -> None:
     driver = Driver()
     visualizer = DebugVisualizer()
     metrics = DrivingMetrics(departure_threshold_px=args.departure_threshold)
+    video_writer = open_video_writer(args.record, world.width, world.height, world.fps)
 
     steering = 0.0
     throttle = 0.0
@@ -133,11 +155,16 @@ def main() -> None:
             )
             lane_info["metrics"] = metrics
             debug_frame = visualizer.draw(frame, lane_info, steering, throttle)
+            if video_writer is not None:
+                resized_frame = cv2.resize(debug_frame, (world.width, world.height), interpolation=cv2.INTER_AREA)
+                video_writer.write(resized_frame)
             world.render(debug_frame, car, steering, throttle, lane_info)
 
             if args.duration > 0 and metrics.elapsed >= args.duration:
                 break
     finally:
+        if video_writer is not None:
+            video_writer.release()
         world.close()
         print()
         for line in metrics.summary_lines():
@@ -153,6 +180,8 @@ def main() -> None:
                 condition=args.condition,
             )
             print(f"metrics saved: {args.save_metrics}")
+        if args.record:
+            print(f"video saved: {args.record}")
 
 
 if __name__ == "__main__":
