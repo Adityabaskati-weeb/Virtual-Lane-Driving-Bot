@@ -180,12 +180,54 @@ class VirtualRoad:
         lane_width = int(self.config.lane_width_top * (1 - t) + self.config.lane_width_bottom * t)
         x = lane_center_x + self._obstacle_lateral_offset(distance, lane_width)
         size = int(14 + 34 * t)
+        angle = np.arctan2(road_bottom_center - road_top_center, bottom_y - horizon_y)
+        self._draw_obstacle_car(frame, x, y, size, angle)
 
-        top_left = (x - size, y - size)
-        bottom_right = (x + size, y + size)
-        cv2.rectangle(frame, top_left, bottom_right, (30, 30, 220), -1)
-        cv2.rectangle(frame, top_left, bottom_right, (255, 255, 255), 2)
-        cv2.line(frame, (x - size, y), (x + size, y), (255, 255, 255), 2)
+    def _draw_obstacle_car(self, frame: np.ndarray, x: int, y: int, size: int, angle: float) -> None:
+        length = size * 2.5
+        width = size * 1.45
+        body = np.array(
+            [
+                [-width / 2, -length / 2],
+                [width / 2, -length / 2],
+                [width / 2, length / 2],
+                [-width / 2, length / 2],
+            ],
+            dtype=np.float32,
+        )
+        cos_a = float(np.cos(angle))
+        sin_a = float(np.sin(angle))
+        rotation = np.array([[cos_a, -sin_a], [sin_a, cos_a]], dtype=np.float32)
+        points = body @ rotation.T + np.array([x, y], dtype=np.float32)
+        polygon = points.astype(np.int32)
+
+        cv2.fillConvexPoly(frame, polygon, (35, 35, 220))
+        cv2.polylines(frame, [polygon], True, (245, 245, 245), 2)
+
+        roof_length = length * 0.45
+        roof_width = width * 0.62
+        roof = np.array(
+            [
+                [-roof_width / 2, -roof_length / 2],
+                [roof_width / 2, -roof_length / 2],
+                [roof_width / 2, roof_length / 2],
+                [-roof_width / 2, roof_length / 2],
+            ],
+            dtype=np.float32,
+        )
+        roof_points = (roof @ rotation.T + np.array([x, y], dtype=np.float32)).astype(np.int32)
+        cv2.fillConvexPoly(frame, roof_points, (90, 90, 255))
+        cv2.polylines(frame, [roof_points], True, (255, 255, 255), 1)
+
+        wheel_offsets = [
+            (-width * 0.58, -length * 0.28),
+            (width * 0.58, -length * 0.28),
+            (-width * 0.58, length * 0.28),
+            (width * 0.58, length * 0.28),
+        ]
+        for wx, wy in wheel_offsets:
+            wheel = np.array([wx, wy], dtype=np.float32) @ rotation.T + np.array([x, y], dtype=np.float32)
+            cv2.circle(frame, tuple(wheel.astype(np.int32)), max(2, size // 5), (18, 18, 18), -1)
 
     def _obstacle_cycle(self) -> float:
         if self.obstacle_mode == "frequent":
