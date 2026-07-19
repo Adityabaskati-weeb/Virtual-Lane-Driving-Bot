@@ -3,7 +3,7 @@
 import argparse
 
 from control.driver import Driver
-from debug.metrics import DrivingMetrics
+from debug.metrics import DrivingMetrics, append_metrics_csv
 from debug.visualizer import DebugVisualizer
 from simulator.camera import VirtualCamera
 from simulator.car import Car
@@ -46,6 +46,11 @@ def parse_args() -> argparse.Namespace:
         default=80.0,
         help="Lane error in pixels counted as a lane departure.",
     )
+    parser.add_argument(
+        "--save-metrics",
+        default="",
+        help="Optional CSV path to append benchmark metrics after the run.",
+    )
     return parser.parse_args()
 
 
@@ -84,6 +89,9 @@ def main() -> None:
         print()
         for line in metrics.summary_lines():
             print(line)
+        if args.save_metrics:
+            append_metrics_csv(args.save_metrics, metrics, detector=args.detector, road=args.road)
+            print(f"metrics saved: {args.save_metrics}")
 
 
 if __name__ == "__main__":
