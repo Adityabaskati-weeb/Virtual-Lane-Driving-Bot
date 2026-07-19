@@ -3,6 +3,7 @@
 import argparse
 
 from control.driver import Driver
+from debug.metrics import DrivingMetrics
 from debug.visualizer import DebugVisualizer
 from simulator.camera import VirtualCamera
 from simulator.car import Car
@@ -33,6 +34,18 @@ def parse_args() -> argparse.Namespace:
         default="s-curve",
         help="Virtual road scenario to run.",
     )
+    parser.add_argument(
+        "--duration",
+        type=float,
+        default=0.0,
+        help="Optional run duration in seconds. Use 0 for no time limit.",
+    )
+    parser.add_argument(
+        "--departure-threshold",
+        type=float,
+        default=80.0,
+        help="Lane error in pixels counted as a lane departure.",
+    )
     return parser.parse_args()
 
 
@@ -46,6 +59,7 @@ def main() -> None:
     detector = build_detector(args.detector)
     driver = Driver()
     visualizer = DebugVisualizer()
+    metrics = DrivingMetrics(departure_threshold_px=args.departure_threshold)
 
     steering = 0.0
     throttle = 0.0
@@ -58,10 +72,18 @@ def main() -> None:
             lane_info["road"] = road.profile
             steering, throttle = driver.drive(lane_info, dt)
             car.update(steering, throttle, dt)
+            metrics.update(lane_info.get("error", 0.0), car.speed, dt)
+            lane_info["metrics"] = metrics
             debug_frame = visualizer.draw(frame, lane_info, steering, throttle)
             world.render(debug_frame, car, steering, throttle, lane_info)
+
+            if args.duration > 0 and metrics.elapsed >= args.duration:
+                break
     finally:
         world.close()
+        print()
+        for line in metrics.summary_lines():
+            print(line)
 
 
 if __name__ == "__main__":
