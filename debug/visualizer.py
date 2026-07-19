@@ -44,7 +44,7 @@ class DebugVisualizer:
             tipLength=0.18,
         )
 
-        self._draw_obstacle(output, lane_info.get("obstacle"))
+        self._draw_obstacle(output, lane_info)
 
         cv2.putText(
             output,
@@ -66,14 +66,17 @@ class DebugVisualizer:
             cv2.line(image, (x, y), (x, min(y + dash, y_bottom)), color, thickness)
             y += dash + gap
 
-    def _draw_obstacle(self, image, obstacle: dict | None) -> None:
+    def _draw_obstacle(self, image, lane_info: dict) -> None:
+        obstacle = lane_info.get("obstacle")
         if not obstacle or not obstacle.get("detected") or obstacle.get("bbox") is None:
             return
         x, y, width, height = obstacle["bbox"]
         cv2.rectangle(image, (x, y), (x + width, y + height), (0, 0, 255), 3)
+        effective = lane_info.get("effective_obstacle_closeness", 0.0)
+        relevance = lane_info.get("obstacle_relevance", 0.0)
         cv2.putText(
             image,
-            f"obstacle {obstacle.get('closeness', 0.0):.2f}",
+            f"obs {obstacle.get('closeness', 0.0):.2f} eff {effective:.2f} r{relevance:.2f}",
             (x, max(24, y - 8)),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.55,
