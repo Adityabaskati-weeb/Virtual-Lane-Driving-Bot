@@ -23,10 +23,11 @@ class RoadConfig:
 class VirtualRoad:
     """Generate camera frames with lane markings for OpenCV detection."""
 
-    def __init__(self, profile: str = "s-curve", config: RoadConfig | None = None) -> None:
+    def __init__(self, profile: str = "s-curve", obstacles: bool = False, config: RoadConfig | None = None) -> None:
         if profile not in ROAD_PROFILES:
             raise ValueError(f"Unknown road profile: {profile}")
         self.profile = profile
+        self.obstacles = obstacles
         self.config = config or RoadConfig()
 
     def render_camera_frame(self, width: int, height: int, car) -> np.ndarray:
@@ -74,6 +75,9 @@ class VirtualRoad:
             marker_half = int(4 + 10 * t)
             cv2.line(frame, (marker_x, y), (marker_x, min(bottom_y, y + 22)), (210, 210, 210), marker_half)
 
+        if self.obstacles:
+            self._draw_obstacle(frame, car.distance, road_top_center, road_bottom_center, horizon_y, bottom_y)
+
         return frame
 
     def _profile_offsets(self, distance: float) -> tuple[int, int]:
@@ -91,3 +95,25 @@ class VirtualRoad:
             return curve, shift
         curve = int(np.sin(distance * 0.045) * strength)
         return curve, 0
+
+    def _draw_obstacle(
+        self,
+        frame: np.ndarray,
+        distance: float,
+        road_top_center: int,
+        road_bottom_center: int,
+        horizon_y: int,
+        bottom_y: int,
+    ) -> None:
+        cycle = 120.0
+        progress = (distance % cycle) / cycle
+        t = 0.18 + 0.72 * progress
+        y = int(horizon_y * (1 - t) + bottom_y * t)
+        x = int(road_top_center * (1 - t) + road_bottom_center * t)
+        size = int(14 + 34 * t)
+
+        top_left = (x - size, y - size)
+        bottom_right = (x + size, y + size)
+        cv2.rectangle(frame, top_left, bottom_right, (30, 30, 220), -1)
+        cv2.rectangle(frame, top_left, bottom_right, (255, 255, 255), 2)
+        cv2.line(frame, (x - size, y), (x + size, y), (255, 255, 255), 2)
