@@ -26,7 +26,12 @@ class DebugVisualizer:
             cv2.line(output, right_line[:2], right_line[2:], (0, 255, 0), 5)
 
         car_center = int(lane_info.get("car_center_x", output.shape[1] // 2))
-        lane_center = int(lane_info.get("lane_center_x", car_center))
+        lane_center = int(
+            lane_info.get(
+                "display_lane_center_x",
+                lane_info.get("lane_center_x", car_center),
+            )
+        )
         cv2.line(output, (car_center, y_bottom), (car_center, y_top), (255, 0, 0), 2)
         cv2.line(output, (lane_center, y_bottom), (lane_center, y_top), (0, 255, 255), 3)
         cv2.arrowedLine(
