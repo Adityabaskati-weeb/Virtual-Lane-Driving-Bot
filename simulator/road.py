@@ -75,8 +75,8 @@ class VirtualRoad:
         )
         cv2.fillPoly(frame, [road_polygon], road_color)
 
-        center_color = (50, 210, 255) if self.condition != "night" else (35, 130, 160)
-        thickness = 6 if self.condition in ("faded", "night") else 8
+        center_color = (50, 210, 255) if self.condition != "night" else (45, 150, 180)
+        thickness = 7 if self.condition in ("faded", "night") else 8
         self._draw_lane_boundary(frame, left_bottom, bottom_y, left_top, horizon_y, lane_color, thickness, car.distance, 0)
         self._draw_lane_boundary(frame, right_bottom, bottom_y, right_top, horizon_y, lane_color, thickness, car.distance, 1)
         cv2.line(
@@ -87,7 +87,7 @@ class VirtualRoad:
             2,
         )
 
-        marker_color = (210, 210, 210) if self.condition != "night" else (125, 125, 125)
+        marker_color = (210, 210, 210) if self.condition != "night" else (195, 195, 195)
         for y in range(horizon_y + 18, bottom_y, 48):
             t = (y - horizon_y) / max(1, bottom_y - horizon_y)
             marker_x = int(road_top_center * (1 - t) + road_bottom_center * t)
@@ -120,9 +120,9 @@ class VirtualRoad:
 
     def _condition_colors(self) -> tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
         if self.condition == "night":
-            return (8, 9, 10), (24, 25, 25), (155, 155, 155)
+            return (8, 9, 10), (24, 25, 25), (205, 205, 205)
         if self.condition == "faded":
-            return (24, 25, 25), (48, 48, 48), (185, 185, 185)
+            return (24, 25, 25), (48, 48, 48), (205, 205, 205)
         return (24, 25, 25), (48, 48, 48), (235, 235, 235)
 
     def _draw_lane_boundary(
