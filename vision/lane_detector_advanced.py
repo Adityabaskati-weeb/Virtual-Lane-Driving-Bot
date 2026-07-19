@@ -35,6 +35,7 @@ class AdvancedLaneDetector:
         y_eval = height - 1
         car_center_x = width // 2
         lane_center_x = car_center_x
+        display_lane_center_x = car_center_x
         left_line = None
         right_line = None
         lane_polygon = None
@@ -44,8 +45,9 @@ class AdvancedLaneDetector:
             left_bottom = int(np.polyval(left_fit, y_eval))
             right_bottom = int(np.polyval(right_fit, y_eval))
             lane_center_x = (left_bottom + right_bottom) // 2
-            left_line = self._line_from_fit(left_fit, height)
-            right_line = self._line_from_fit(right_fit, height)
+            display_lane_center_x = self._project_x_at_y(lane_center_x, y_eval, inverse)
+            left_line = self._project_line_from_fit(left_fit, height, inverse)
+            right_line = self._project_line_from_fit(right_fit, height, inverse)
             lane_polygon, lane_overlay = self._project_lane_area(
                 frame_bgr,
                 left_fit,
@@ -55,11 +57,13 @@ class AdvancedLaneDetector:
         elif left_fit is not None:
             left_bottom = int(np.polyval(left_fit, y_eval))
             lane_center_x = left_bottom + int(width * 0.40)
-            left_line = self._line_from_fit(left_fit, height)
+            display_lane_center_x = self._project_x_at_y(lane_center_x, y_eval, inverse)
+            left_line = self._project_line_from_fit(left_fit, height, inverse)
         elif right_fit is not None:
             right_bottom = int(np.polyval(right_fit, y_eval))
             lane_center_x = right_bottom - int(width * 0.40)
-            right_line = self._line_from_fit(right_fit, height)
+            display_lane_center_x = self._project_x_at_y(lane_center_x, y_eval, inverse)
+            right_line = self._project_line_from_fit(right_fit, height, inverse)
 
         return {
             "left_line": left_line,
@@ -67,6 +71,7 @@ class AdvancedLaneDetector:
             "left_fit": left_fit,
             "right_fit": right_fit,
             "lane_center_x": lane_center_x,
+            "display_lane_center_x": display_lane_center_x,
             "car_center_x": car_center_x,
             "error": lane_center_x - car_center_x,
             "binary": binary,
@@ -159,16 +164,34 @@ class AdvancedLaneDetector:
             return None
         return np.polyfit(y, x, 2)
 
-    def _line_from_fit(self, fit: np.ndarray, height: int) -> tuple[int, int, int, int]:
+    def _project_line_from_fit(self, fit: np.ndarray, height: int, inverse_matrix: np.ndarray) -> tuple[int, int, int, int]:
         y_bottom = int(height * 0.92)
         y_top = int(height * 0.52)
         x_bottom = int(np.polyval(fit, y_bottom))
         x_top = int(np.polyval(fit, y_top))
-        return x_bottom, y_bottom, x_top, y_top
+        projected = self._project_points(
+            np.array([[x_bottom, y_bottom], [x_top, y_top]], dtype=np.float32),
+            inverse_matrix,
+        )
+        return (
+            int(projected[0][0]),
+            int(projected[0][1]),
+            int(projected[1][0]),
+            int(projected[1][1]),
+        )
+
+    def _project_x_at_y(self, x: int, y: int, inverse_matrix: np.ndarray) -> int:
+        projected = self._project_points(np.array([[x, y]], dtype=np.float32), inverse_matrix)
+        return int(projected[0][0])
+
+    def _project_points(self, points: np.ndarray, matrix: np.ndarray) -> np.ndarray:
+        shaped = points.reshape(-1, 1, 2)
+        projected = cv2.perspectiveTransform(shaped, matrix)
+        return projected.reshape(-1, 2)
 
     def _project_lane_area(self, frame_bgr, left_fit, right_fit, inverse_matrix):
         height, width = frame_bgr.shape[:2]
-        plot_y = np.linspace(0, height - 1, height)
+        plot_y = np.linspace(int(height * 0.08), height - 1, height)
         left_x = np.polyval(left_fit, plot_y)
         right_x = np.polyval(right_fit, plot_y)
 
