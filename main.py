@@ -109,6 +109,7 @@ def main() -> None:
                 dt,
                 throttle=throttle,
                 obstacle=lane_info.get("obstacle"),
+                braking_pressure=lane_info.get("obstacle_braking_pressure", 0.0),
             )
             lane_info["metrics"] = metrics
             debug_frame = visualizer.draw(frame, lane_info, steering, throttle)
