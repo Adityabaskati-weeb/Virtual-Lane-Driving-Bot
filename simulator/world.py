@@ -38,6 +38,7 @@ class World:
         self.screen.blit(surface, (0, 0))
 
         telemetry = [
+            f"road: {lane_info.get('road', 'unknown')}",
             f"speed: {car.speed:05.2f}",
             f"offset: {car.lateral_offset:+.2f}",
             f"steering: {steering:+.2f}",
@@ -53,7 +54,7 @@ class World:
         pygame.quit()
 
     def _draw_panel(self, lines: list[str]) -> None:
-        panel = pygame.Surface((230, 150), pygame.SRCALPHA)
+        panel = pygame.Surface((250, 176), pygame.SRCALPHA)
         panel.fill((0, 0, 0, 150))
         self.screen.blit(panel, (16, 16))
         for index, line in enumerate(lines):
