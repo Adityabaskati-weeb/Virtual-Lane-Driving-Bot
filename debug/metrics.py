@@ -30,6 +30,7 @@ class DrivingMetrics:
         dt: float,
         throttle: float | None = None,
         obstacle: dict | None = None,
+        braking_pressure: float = 0.0,
     ) -> None:
         """Record one simulation frame."""
         abs_error = abs(float(lane_error))
@@ -42,8 +43,8 @@ class DrivingMetrics:
         if throttle is not None:
             throttle_value = float(throttle)
             self.min_throttle = throttle_value if self.min_throttle is None else min(self.min_throttle, throttle_value)
-            if throttle_value < 0.50:
-                self.braking_frames += 1
+        if float(braking_pressure) > 0.01:
+            self.braking_frames += 1
 
         if obstacle and obstacle.get("detected"):
             closeness = float(obstacle.get("closeness", 0.0))
@@ -75,7 +76,7 @@ class DrivingMetrics:
 
     @property
     def braking_time_ratio(self) -> float:
-        """Fraction of frames where the controller reduced speed."""
+        """Fraction of frames where obstacle braking engaged."""
         return self.braking_frames / self.frames if self.frames else 0.0
 
     @property
