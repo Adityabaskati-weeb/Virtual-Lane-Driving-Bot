@@ -18,7 +18,8 @@ class Driver:
         lane_info["smoothed_error"] = smoothed_error
 
         steering = self.steering_pid.update(smoothed_error, dt)
-        throttle = max(0.28, 0.62 - abs(steering) * 0.30)
+        base_throttle = max(0.28, 0.62 - abs(steering) * 0.30)
+        throttle = self._apply_obstacle_speed_limit(base_throttle, lane_info.get("obstacle"))
         return steering, throttle
 
     def reset(self) -> None:
@@ -33,3 +34,15 @@ class Driver:
             alpha = self.smoothing_alpha
             self.smoothed_error = alpha * error + (1.0 - alpha) * self.smoothed_error
         return self.smoothed_error
+
+    def _apply_obstacle_speed_limit(self, throttle: float, obstacle: dict | None) -> float:
+        if not obstacle or not obstacle.get("detected"):
+            return throttle
+        closeness = float(obstacle.get("closeness", 0.0))
+        if closeness >= 0.85:
+            return min(throttle, 0.10)
+        if closeness >= 0.65:
+            return min(throttle, 0.22)
+        if closeness >= 0.45:
+            return min(throttle, 0.38)
+        return min(throttle, 0.52)
