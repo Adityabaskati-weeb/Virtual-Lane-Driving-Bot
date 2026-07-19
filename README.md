@@ -3,11 +3,12 @@
 A virtual lane-driving bot that combines:
 
 - OpenCV lane detection
+- obstacle detection
 - a simulated driving world
 - steering and throttle control
 - driving performance metrics
 
-The project runs in a lightweight `pygame` window. The bot sees a synthetic road through a virtual camera, detects lane position with OpenCV, smooths the lane error, and uses PID steering to stay near the lane center.
+The project runs in a lightweight `pygame` window. The bot sees a synthetic road through a virtual camera, detects lane position with OpenCV, detects red lane obstacles when enabled, smooths the lane error, and uses PID steering plus obstacle-aware throttle control.
 
 ## Run Locally
 
@@ -33,10 +34,16 @@ python main.py --road s-curve
 python main.py --road lane-shift
 ```
 
+Enable red obstacle detection and speed control:
+
+```bash
+python main.py --road lane-shift --obstacles
+```
+
 Detector and road options can be combined:
 
 ```bash
-python main.py --detector advanced --road lane-shift
+python main.py --detector advanced --road lane-shift --obstacles
 ```
 
 Run a timed benchmark and print metrics when it ends:
@@ -55,6 +62,12 @@ Run all road scenarios headlessly and save one CSV:
 
 ```bash
 python benchmark.py --duration 30 --output benchmark_results.csv
+```
+
+Benchmark with obstacles enabled:
+
+```bash
+python benchmark.py --duration 30 --obstacles --output obstacle_benchmark.csv
 ```
 
 Run selected roads only:
@@ -93,6 +106,7 @@ Virtual-Lane-Driving-Bot/
     __init__.py
     lane_detector_basic.py
     lane_detector_advanced.py
+    obstacle_detector.py
     perspective.py
 
   control/
@@ -114,17 +128,17 @@ Virtual-Lane-Driving-Bot/
 ## Module Responsibilities
 
 - `benchmark.py`: runs headless benchmarks across road scenarios and exports CSV results.
-- `main.py`: connects simulator, camera, lane detector, driver, metrics, and debug overlay.
-- `simulator/`: virtual road generation, car motion, window rendering, and camera capture.
-- `vision/`: OpenCV lane detection modules inspired by the referenced lane detection repos.
-- `control/`: smoothed lane-error steering, PID control, and throttle decisions.
-- `debug/`: metrics and visual overlays for lane lines, lane center, steering, and telemetry.
+- `main.py`: connects simulator, camera, lane detector, obstacle detector, driver, metrics, and debug overlay.
+- `simulator/`: virtual road generation, obstacle rendering, car motion, window rendering, and camera capture.
+- `vision/`: OpenCV lane and obstacle detection modules inspired by the referenced lane detection repos.
+- `control/`: smoothed lane-error steering, PID control, obstacle-aware speed control, and throttle decisions.
+- `debug/`: metrics and visual overlays for lane lines, lane center, obstacles, steering, and telemetry.
 - `assets/roads/`: road maps, lane textures, or generated driving scenes.
 
 ## Current Driving Loop
 
 ```text
-Virtual road -> camera frame -> lane detection -> smoothed lane error -> PID steering -> car update -> metrics
+Virtual road -> camera frame -> lane/obstacle detection -> smoothed lane error -> PID steering + speed control -> car update -> metrics
 ```
 
 ## Road Scenarios
@@ -146,10 +160,11 @@ The app tracks and can export:
 - lane departures
 - average speed
 - detector and road scenario
+- obstacle mode
 
 ## Next Improvements
 
-- Add obstacle detection and speed control.
 - Save screenshots or demo video for the README.
 - Add harder road conditions like missing lanes, noisy paint, and night mode.
+- Add steering around obstacles instead of speed-only obstacle response.
 - Later, port the same control loop to CARLA or another 3D simulator.
