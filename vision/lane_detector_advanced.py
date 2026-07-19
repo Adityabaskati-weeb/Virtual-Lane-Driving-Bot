@@ -160,16 +160,28 @@ class AdvancedLaneDetector:
     def _camera_lane_overlay(self, frame_bgr, left_line, right_line):
         if left_line is None or right_line is None:
             return frame_bgr.copy()
+        height = frame_bgr.shape[0]
+        overlay_bottom = int(height * 0.86)
+        left_bottom_x = self._x_at_y(left_line, overlay_bottom)
+        right_bottom_x = self._x_at_y(right_line, overlay_bottom)
+
         overlay = frame_bgr.copy()
         polygon = np.array(
             [[
-                (left_line[0], left_line[1]),
+                (left_bottom_x, overlay_bottom),
                 (left_line[2], left_line[3]),
                 (right_line[2], right_line[3]),
-                (right_line[0], right_line[1]),
+                (right_bottom_x, overlay_bottom),
             ]],
             dtype=np.int32,
         )
         fill = np.zeros_like(frame_bgr)
         cv2.fillPoly(fill, polygon, (0, 120, 0))
-        return cv2.addWeighted(overlay, 1.0, fill, 0.35, 0)
+        return cv2.addWeighted(overlay, 1.0, fill, 0.30, 0)
+
+    def _x_at_y(self, line: tuple[int, int, int, int], y: int) -> int:
+        x1, y1, x2, y2 = line
+        if y2 == y1:
+            return x1
+        t = (y - y1) / (y2 - y1)
+        return int(x1 + t * (x2 - x1))
