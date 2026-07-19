@@ -1,6 +1,7 @@
 """Draw lane detection, steering, and telemetry debug views."""
 
 import cv2
+import numpy as np
 
 
 class DebugVisualizer:
@@ -45,6 +46,7 @@ class DebugVisualizer:
         )
 
         self._draw_obstacle(output, lane_info)
+        self._draw_ego_car(output, car_center, steering)
 
         cv2.putText(
             output,
@@ -71,7 +73,7 @@ class DebugVisualizer:
         if not obstacle or not obstacle.get("detected") or obstacle.get("bbox") is None:
             return
         x, y, width, height = obstacle["bbox"]
-        cv2.rectangle(image, (x, y), (x + width, y + height), (0, 0, 255), 3)
+        cv2.rectangle(image, (x, y), (x + width, y + height), (0, 0, 255), 2)
         effective = lane_info.get("effective_obstacle_closeness", 0.0)
         relevance = lane_info.get("obstacle_relevance", 0.0)
         cv2.putText(
@@ -84,3 +86,47 @@ class DebugVisualizer:
             2,
             cv2.LINE_AA,
         )
+
+    def _draw_ego_car(self, image, center_x: int, steering: float) -> None:
+        height, width = image.shape[:2]
+        base_y = height - 8
+        hood_top = int(height * 0.76)
+        car_half_width = int(width * 0.115)
+        nose_half_width = int(width * 0.045)
+
+        hood = np.array(
+            [[
+                (center_x - car_half_width, base_y),
+                (center_x - nose_half_width, hood_top),
+                (center_x + nose_half_width, hood_top),
+                (center_x + car_half_width, base_y),
+            ]],
+            dtype=np.int32,
+        )
+        overlay = image.copy()
+        cv2.fillPoly(overlay, hood, (32, 74, 138))
+        cv2.addWeighted(overlay, 0.70, image, 0.30, 0, image)
+        cv2.polylines(image, hood, True, (235, 235, 235), 2)
+
+        windshield = np.array(
+            [[
+                (center_x - int(car_half_width * 0.42), hood_top + 8),
+                (center_x + int(car_half_width * 0.42), hood_top + 8),
+                (center_x + int(car_half_width * 0.24), hood_top + 38),
+                (center_x - int(car_half_width * 0.24), hood_top + 38),
+            ]],
+            dtype=np.int32,
+        )
+        cv2.fillPoly(image, windshield, (30, 38, 52))
+        cv2.polylines(image, windshield, True, (120, 160, 210), 1)
+
+        wheel_y = int(height * 0.93)
+        wheel_offset = int(car_half_width * 0.78)
+        wheel_angle = int(steering * 22)
+        for side in (-1, 1):
+            wheel_center = (center_x + side * wheel_offset, wheel_y)
+            cv2.ellipse(image, wheel_center, (12, 24), wheel_angle, 0, 360, (18, 18, 18), -1)
+            cv2.ellipse(image, wheel_center, (12, 24), wheel_angle, 0, 360, (90, 90, 90), 2)
+
+        cv2.circle(image, (center_x - int(car_half_width * 0.55), base_y - 22), 7, (70, 210, 255), -1)
+        cv2.circle(image, (center_x + int(car_half_width * 0.55), base_y - 22), 7, (70, 210, 255), -1)
