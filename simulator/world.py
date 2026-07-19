@@ -71,3 +71,24 @@ class World:
         for index, line in enumerate(lines):
             text = self.font.render(line, True, (245, 245, 245))
             self.screen.blit(text, (28, 28 + index * 22))
+
+
+class HeadlessWorld:
+    """No-window world used for fast automated benchmark runs."""
+
+    def __init__(self, fps: int = 30) -> None:
+        self.fps = fps
+
+    def tick(self) -> float:
+        """Return a fixed simulation timestep without sleeping."""
+        return 1.0 / self.fps
+
+    def should_quit(self) -> bool:
+        """Headless benchmarks only stop by duration."""
+        return False
+
+    def render(self, frame_bgr, car, steering: float, throttle: float, lane_info: dict) -> None:
+        """Skip rendering during benchmark runs."""
+
+    def close(self) -> None:
+        """No resources to release."""
