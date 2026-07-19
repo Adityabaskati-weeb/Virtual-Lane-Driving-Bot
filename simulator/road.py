@@ -119,7 +119,11 @@ class VirtualRoad:
     ) -> None:
         cycle = self._obstacle_cycle()
         progress = (distance % cycle) / cycle
-        t = 0.18 + 0.72 * progress
+        if progress < self._obstacle_start_progress():
+            return
+
+        visible_progress = (progress - self._obstacle_start_progress()) / (1.0 - self._obstacle_start_progress())
+        t = 0.18 + 0.72 * visible_progress
         y = int(horizon_y * (1 - t) + bottom_y * t)
         lane_center_x = int(road_top_center * (1 - t) + road_bottom_center * t)
         lane_width = int(self.config.lane_width_top * (1 - t) + self.config.lane_width_bottom * t)
@@ -138,6 +142,13 @@ class VirtualRoad:
         if self.obstacle_mode == "side":
             return 95.0
         return 120.0
+
+    def _obstacle_start_progress(self) -> float:
+        if self.obstacle_mode == "frequent":
+            return 0.28
+        if self.obstacle_mode == "side":
+            return 0.35
+        return 0.45
 
     def _obstacle_lateral_offset(self, distance: float, lane_width: int) -> int:
         if self.obstacle_mode != "side":
