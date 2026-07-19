@@ -1,6 +1,8 @@
 """Driving performance metrics for the virtual lane bot."""
 
+import csv
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass
@@ -51,3 +53,31 @@ class DrivingMetrics:
             f"lane departures: {self.lane_departures}",
             f"avg speed: {self.average_speed:.2f}",
         ]
+
+    def to_row(self, detector: str, road: str) -> dict[str, float | int | str]:
+        """Return one CSV row for this run."""
+        return {
+            "detector": detector,
+            "road": road,
+            "duration_s": round(self.elapsed, 2),
+            "frames": self.frames,
+            "avg_lane_error_px": round(self.average_abs_error, 2),
+            "max_lane_error_px": round(self.max_abs_error, 2),
+            "lane_departures": self.lane_departures,
+            "avg_speed": round(self.average_speed, 2),
+            "departure_threshold_px": self.departure_threshold_px,
+        }
+
+
+def append_metrics_csv(path: str, metrics: DrivingMetrics, detector: str, road: str) -> None:
+    """Append one benchmark row to a CSV file, creating headers as needed."""
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True) if output_path.parent != Path(".") else None
+    row = metrics.to_row(detector=detector, road=road)
+    write_header = not output_path.exists() or output_path.stat().st_size == 0
+
+    with output_path.open("a", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=list(row.keys()))
+        if write_header:
+            writer.writeheader()
+        writer.writerow(row)
