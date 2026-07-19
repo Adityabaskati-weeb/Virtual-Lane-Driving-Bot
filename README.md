@@ -51,6 +51,18 @@ Save benchmark metrics to CSV:
 python main.py --detector advanced --road lane-shift --duration 30 --save-metrics results.csv
 ```
 
+Run all road scenarios headlessly and save one CSV:
+
+```bash
+python benchmark.py --duration 30 --output benchmark_results.csv
+```
+
+Run selected roads only:
+
+```bash
+python benchmark.py --roads straight lane-shift --duration 30
+```
+
 Use a custom lane-departure threshold in pixels:
 
 ```bash
@@ -65,6 +77,7 @@ Controls:
 
 ```text
 Virtual-Lane-Driving-Bot/
+  benchmark.py
   main.py
   requirements.txt
   README.md
@@ -100,6 +113,7 @@ Virtual-Lane-Driving-Bot/
 
 ## Module Responsibilities
 
+- `benchmark.py`: runs headless benchmarks across road scenarios and exports CSV results.
 - `main.py`: connects simulator, camera, lane detector, driver, metrics, and debug overlay.
 - `simulator/`: virtual road generation, car motion, window rendering, and camera capture.
 - `vision/`: OpenCV lane detection modules inspired by the referenced lane detection repos.
@@ -135,7 +149,7 @@ The app tracks and can export:
 
 ## Next Improvements
 
-- Add a `benchmark.py` runner for all road scenarios.
 - Tune steering smoothness and lane-error filtering.
 - Add obstacle detection and speed control.
+- Save screenshots or demo video for the README.
 - Later, port the same control loop to CARLA or another 3D simulator.
