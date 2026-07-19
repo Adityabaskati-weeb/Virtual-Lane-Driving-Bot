@@ -80,13 +80,14 @@ def resolve_obstacle_mode(args: argparse.Namespace) -> str:
 
 
 def is_collision_risk(lane_info: dict, throttle: float) -> bool:
-    """Estimate whether the bot failed to slow for a close relevant obstacle."""
+    """Estimate whether the bot failed to slow for a close obstacle in its path."""
     obstacle = lane_info.get("obstacle") or {}
     if not obstacle.get("detected"):
         return False
     closeness = float(obstacle.get("closeness", 0.0))
-    relevance = float(lane_info.get("obstacle_relevance", 0.0))
-    return closeness >= 0.92 and relevance >= 0.60 and throttle > 0.24
+    lateral_distance = float(lane_info.get("obstacle_lateral_distance_px", 999.0))
+    effective_closeness = float(lane_info.get("effective_obstacle_closeness", 0.0))
+    return closeness >= 0.92 and effective_closeness >= 0.80 and lateral_distance <= 32.0 and throttle > 0.24
 
 
 def main() -> None:
