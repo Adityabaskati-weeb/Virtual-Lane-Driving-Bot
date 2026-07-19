@@ -34,16 +34,31 @@ python main.py --road s-curve
 python main.py --road lane-shift
 ```
 
-Enable red obstacle detection and speed control:
+Enable red obstacle detection and obstacle-aware speed/avoidance control:
 
 ```bash
 python main.py --road lane-shift --obstacles
 ```
 
-Detector and road options can be combined:
+`--obstacles` is a shortcut for the single-obstacle scenario. You can also choose an obstacle mode directly:
 
 ```bash
-python main.py --detector advanced --road lane-shift --obstacles
+python main.py --road lane-shift --obstacle-mode single
+python main.py --road lane-shift --obstacle-mode frequent
+python main.py --road lane-shift --obstacle-mode side
+```
+
+Obstacle modes:
+
+- `none`: no obstacles.
+- `single`: one centered obstacle cycles toward the bot.
+- `frequent`: centered obstacles appear more often.
+- `side`: obstacles appear offset toward one side of the lane so the bot can test relevance and avoidance.
+
+Detector, road, and obstacle options can be combined:
+
+```bash
+python main.py --detector advanced --road lane-shift --obstacle-mode side
 ```
 
 Run a timed benchmark and print metrics when it ends:
@@ -56,6 +71,7 @@ Save benchmark metrics to CSV:
 
 ```bash
 python main.py --detector advanced --road lane-shift --duration 30 --save-metrics results.csv
+python main.py --detector advanced --road lane-shift --obstacle-mode frequent --duration 30 --save-metrics obstacle_results.csv
 ```
 
 Run all road scenarios headlessly and save one CSV:
@@ -68,6 +84,8 @@ Benchmark with obstacles enabled:
 
 ```bash
 python benchmark.py --duration 30 --obstacles --output obstacle_benchmark.csv
+python benchmark.py --duration 30 --obstacle-mode frequent --output frequent_obstacle_benchmark.csv
+python benchmark.py --duration 30 --obstacle-mode side --output side_obstacle_benchmark.csv
 ```
 
 Run selected roads only:
@@ -131,14 +149,14 @@ Virtual-Lane-Driving-Bot/
 - `main.py`: connects simulator, camera, lane detector, obstacle detector, driver, metrics, and debug overlay.
 - `simulator/`: virtual road generation, obstacle rendering, car motion, window rendering, and camera capture.
 - `vision/`: OpenCV lane and obstacle detection modules inspired by the referenced lane detection repos.
-- `control/`: smoothed lane-error steering, PID control, obstacle-aware speed control, and throttle decisions.
+- `control/`: smoothed lane-error steering, PID control, obstacle-aware speed control, avoidance bias, and throttle decisions.
 - `debug/`: metrics and visual overlays for lane lines, lane center, obstacles, steering, and telemetry.
 - `assets/roads/`: road maps, lane textures, or generated driving scenes.
 
 ## Current Driving Loop
 
 ```text
-Virtual road -> camera frame -> lane/obstacle detection -> smoothed lane error -> PID steering + speed control -> car update -> metrics
+Virtual road -> camera frame -> lane/obstacle detection -> smoothed lane error -> PID steering + speed/avoidance control -> car update -> metrics
 ```
 
 ## Road Scenarios
@@ -161,10 +179,14 @@ The app tracks and can export:
 - average speed
 - detector and road scenario
 - obstacle mode
+- obstacle detection count
+- average and maximum obstacle closeness
+- braking ratio
+- minimum throttle
 
 ## Next Improvements
 
 - Save screenshots or demo video for the README.
 - Add harder road conditions like missing lanes, noisy paint, and night mode.
-- Add steering around obstacles instead of speed-only obstacle response.
+- Add collision counting for obstacles.
 - Later, port the same control loop to CARLA or another 3D simulator.
