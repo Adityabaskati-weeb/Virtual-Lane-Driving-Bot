@@ -1,206 +1,175 @@
-"""Advanced lane detector based on perspective transform and sliding windows."""
+"""Advanced lane detector based on perspective transform and robust boundary fitting."""
 
 import cv2
 import numpy as np
 
-from vision.perspective import unwarp_birds_eye, warp_birds_eye
+from vision.perspective import warp_birds_eye
 
 
 class AdvancedLaneDetector:
-    """Detect lane boundaries with a bird's-eye sliding-window pipeline."""
+    """Detect the active lane and reject center-line artifacts."""
 
     def __init__(self, windows: int = 9, margin: int = 70, min_pixels: int = 35) -> None:
         self.windows = windows
         self.margin = margin
         self.min_pixels = min_pixels
-        self.previous_left_fit = None
-        self.previous_right_fit = None
+        self.previous_left_line = None
+        self.previous_right_line = None
+        self.previous_lane_center_x = None
 
     def detect(self, frame_bgr: np.ndarray) -> dict:
-        """Return lane center, polynomial fits, and projected lane lines."""
+        """Return lane boundaries, lane center, and debug masks."""
         height, width = frame_bgr.shape[:2]
         warped, _, inverse = warp_birds_eye(frame_bgr)
         binary = self._binary_lane_mask(warped)
+        camera_mask = self._camera_white_lane_mask(frame_bgr)
 
-        left_fit, right_fit, debug_windows = self._fit_lane_pixels(binary)
-        if left_fit is None:
-            left_fit = self.previous_left_fit
-        if right_fit is None:
-            right_fit = self.previous_right_fit
-        if left_fit is not None:
-            self.previous_left_fit = left_fit
-        if right_fit is not None:
-            self.previous_right_fit = right_fit
+        left_line, right_line = self._detect_outer_camera_boundaries(camera_mask)
+        if left_line is None:
+            left_line = self.previous_left_line
+        if right_line is None:
+            right_line = self.previous_right_line
+        if left_line is not None:
+            self.previous_left_line = left_line
+        if right_line is not None:
+            self.previous_right_line = right_line
 
-        y_eval = height - 1
         car_center_x = width // 2
-        lane_center_x = car_center_x
-        display_lane_center_x = car_center_x
-        left_line = None
-        right_line = None
-        lane_polygon = None
-        lane_overlay = None
+        lane_center_x = self.previous_lane_center_x or car_center_x
+        if left_line is not None and right_line is not None:
+            lane_center_x = (left_line[0] + right_line[0]) // 2
+        elif left_line is not None:
+            lane_center_x = left_line[0] + int(width * 0.40)
+        elif right_line is not None:
+            lane_center_x = right_line[0] - int(width * 0.40)
+        self.previous_lane_center_x = lane_center_x
 
-        if left_fit is not None and right_fit is not None:
-            left_bottom = int(np.polyval(left_fit, y_eval))
-            right_bottom = int(np.polyval(right_fit, y_eval))
-            lane_center_x = (left_bottom + right_bottom) // 2
-            display_lane_center_x = self._project_x_at_y(lane_center_x, y_eval, inverse)
-            left_line = self._project_line_from_fit(left_fit, height, inverse)
-            right_line = self._project_line_from_fit(right_fit, height, inverse)
-            lane_polygon, lane_overlay = self._project_lane_area(
-                frame_bgr,
-                left_fit,
-                right_fit,
-                inverse,
-            )
-        elif left_fit is not None:
-            left_bottom = int(np.polyval(left_fit, y_eval))
-            lane_center_x = left_bottom + int(width * 0.40)
-            display_lane_center_x = self._project_x_at_y(lane_center_x, y_eval, inverse)
-            left_line = self._project_line_from_fit(left_fit, height, inverse)
-        elif right_fit is not None:
-            right_bottom = int(np.polyval(right_fit, y_eval))
-            lane_center_x = right_bottom - int(width * 0.40)
-            display_lane_center_x = self._project_x_at_y(lane_center_x, y_eval, inverse)
-            right_line = self._project_line_from_fit(right_fit, height, inverse)
+        lane_overlay = self._camera_lane_overlay(frame_bgr, left_line, right_line)
 
         return {
             "left_line": left_line,
             "right_line": right_line,
-            "left_fit": left_fit,
-            "right_fit": right_fit,
+            "left_fit": None,
+            "right_fit": None,
             "lane_center_x": lane_center_x,
-            "display_lane_center_x": display_lane_center_x,
+            "display_lane_center_x": lane_center_x,
             "car_center_x": car_center_x,
             "error": lane_center_x - car_center_x,
             "binary": binary,
+            "camera_mask": camera_mask,
             "warped": warped,
             "inverse_matrix": inverse,
-            "lane_polygon": lane_polygon,
+            "lane_polygon": None,
             "lane_overlay": lane_overlay,
-            "debug_windows": debug_windows,
+            "debug_windows": [],
         }
 
     def _binary_lane_mask(self, warped_bgr: np.ndarray) -> np.ndarray:
-        """Create a clean binary mask for bright white lane paint."""
+        """Create a bird's-eye binary mask for lane-paint debugging."""
         hls = cv2.cvtColor(warped_bgr, cv2.COLOR_BGR2HLS)
-        white = cv2.inRange(hls, np.array([0, 175, 0]), np.array([180, 255, 90]))
-
-        gray = cv2.cvtColor(warped_bgr, cv2.COLOR_BGR2GRAY)
-        sobel_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
-        abs_sobel = np.absolute(sobel_x)
-        scaled = np.uint8(255 * abs_sobel / max(1.0, np.max(abs_sobel)))
-        sobel_binary = np.zeros_like(scaled)
-        sobel_binary[(scaled >= 35) & (scaled <= 255)] = 255
-
-        binary = cv2.bitwise_or(white, cv2.bitwise_and(sobel_binary, white))
+        white = cv2.inRange(hls, np.array([0, 185, 0]), np.array([180, 255, 70]))
         kernel = np.ones((5, 5), dtype=np.uint8)
-        binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
-        return binary
+        return cv2.morphologyEx(white, cv2.MORPH_CLOSE, kernel)
 
-    def _fit_lane_pixels(self, binary: np.ndarray):
-        height, width = binary.shape[:2]
-        histogram = np.sum(binary[height // 2 :, :], axis=0)
-        midpoint = width // 2
+    def _camera_white_lane_mask(self, frame_bgr: np.ndarray) -> np.ndarray:
+        """Keep only bright white lane paint in the original camera view."""
+        hls = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HLS)
+        white = cv2.inRange(hls, np.array([0, 190, 0]), np.array([180, 255, 65]))
+        roi = self._camera_roi(white)
+        kernel = np.ones((5, 5), dtype=np.uint8)
+        return cv2.morphologyEx(roi, cv2.MORPH_CLOSE, kernel)
 
-        left_base = self._histogram_peak(histogram[:midpoint], fallback=midpoint - width // 4)
-        right_base = self._histogram_peak(histogram[midpoint:], fallback=width // 4) + midpoint
+    def _camera_roi(self, mask: np.ndarray) -> np.ndarray:
+        height, width = mask.shape[:2]
+        polygon = np.array(
+            [[
+                (int(width * 0.06), height),
+                (int(width * 0.36), int(height * 0.40)),
+                (int(width * 0.64), int(height * 0.40)),
+                (int(width * 0.94), height),
+            ]],
+            dtype=np.int32,
+        )
+        roi = np.zeros_like(mask)
+        cv2.fillPoly(roi, polygon, 255)
+        return cv2.bitwise_and(mask, roi)
 
-        window_height = height // self.windows
-        nonzero_y, nonzero_x = binary.nonzero()
-        left_current = left_base
-        right_current = right_base
-        left_indices: list[np.ndarray] = []
-        right_indices: list[np.ndarray] = []
-        debug_windows = []
+    def _detect_outer_camera_boundaries(self, mask: np.ndarray):
+        height, width = mask.shape[:2]
+        edges = cv2.Canny(mask, 40, 120)
+        segments = cv2.HoughLinesP(
+            edges,
+            rho=1,
+            theta=np.pi / 180,
+            threshold=24,
+            minLineLength=45,
+            maxLineGap=80,
+        )
+        if segments is None:
+            return None, None
 
-        for window in range(self.windows):
-            win_y_low = height - (window + 1) * window_height
-            win_y_high = height - window * window_height
-            left_x_low = left_current - self.margin
-            left_x_high = left_current + self.margin
-            right_x_low = right_current - self.margin
-            right_x_high = right_current + self.margin
-
-            debug_windows.append((left_x_low, win_y_low, left_x_high, win_y_high))
-            debug_windows.append((right_x_low, win_y_low, right_x_high, win_y_high))
-
-            good_left = (
-                (nonzero_y >= win_y_low)
-                & (nonzero_y < win_y_high)
-                & (nonzero_x >= left_x_low)
-                & (nonzero_x < left_x_high)
-            ).nonzero()[0]
-            good_right = (
-                (nonzero_y >= win_y_low)
-                & (nonzero_y < win_y_high)
-                & (nonzero_x >= right_x_low)
-                & (nonzero_x < right_x_high)
-            ).nonzero()[0]
-
-            left_indices.append(good_left)
-            right_indices.append(good_right)
-
-            if len(good_left) > self.min_pixels:
-                left_current = int(np.mean(nonzero_x[good_left]))
-            if len(good_right) > self.min_pixels:
-                right_current = int(np.mean(nonzero_x[good_right]))
-
-        left_indices_flat = np.concatenate(left_indices) if left_indices else np.array([], dtype=np.int64)
-        right_indices_flat = np.concatenate(right_indices) if right_indices else np.array([], dtype=np.int64)
-
-        left_fit = self._polyfit_or_none(nonzero_y[left_indices_flat], nonzero_x[left_indices_flat])
-        right_fit = self._polyfit_or_none(nonzero_y[right_indices_flat], nonzero_x[right_indices_flat])
-        return left_fit, right_fit, debug_windows
-
-    def _histogram_peak(self, values: np.ndarray, fallback: int) -> int:
-        if values.size == 0 or np.max(values) <= 0:
-            return int(fallback)
-        return int(np.argmax(values))
-
-    def _polyfit_or_none(self, y: np.ndarray, x: np.ndarray):
-        if len(x) < 80:
-            return None
-        return np.polyfit(y, x, 2)
-
-    def _project_line_from_fit(self, fit: np.ndarray, height: int, inverse_matrix: np.ndarray) -> tuple[int, int, int, int]:
         y_bottom = int(height * 0.92)
         y_top = int(height * 0.52)
-        x_bottom = int(np.polyval(fit, y_bottom))
-        x_top = int(np.polyval(fit, y_top))
-        projected = self._project_points(
-            np.array([[x_bottom, y_bottom], [x_top, y_top]], dtype=np.float32),
-            inverse_matrix,
+        left_candidates = []
+        right_candidates = []
+
+        for segment in segments[:, 0]:
+            x1, y1, x2, y2 = map(int, segment)
+            if x1 == x2:
+                continue
+            slope = (y2 - y1) / (x2 - x1)
+            if abs(slope) < 0.45:
+                continue
+
+            line = self._line_from_segment(x1, y1, x2, y2, y_bottom, y_top)
+            if line is None:
+                continue
+            x_bottom, _, x_top, _ = line
+            length = float(np.hypot(x2 - x1, y2 - y1))
+
+            if slope < 0 and x_bottom < width * 0.55 and x_top < width * 0.58:
+                # Choose the outer left boundary, not any center marker near the vehicle.
+                score = length + max(0.0, width * 0.50 - x_bottom)
+                left_candidates.append((line, score))
+            elif slope > 0 and x_bottom > width * 0.45 and x_top > width * 0.42:
+                # Choose the outer right boundary, not any center marker near the vehicle.
+                score = length + max(0.0, x_bottom - width * 0.50)
+                right_candidates.append((line, score))
+
+        left_line = max(left_candidates, key=lambda item: item[1])[0] if left_candidates else None
+        right_line = max(right_candidates, key=lambda item: item[1])[0] if right_candidates else None
+        return left_line, right_line
+
+    def _line_from_segment(
+        self,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        y_bottom: int,
+        y_top: int,
+    ) -> tuple[int, int, int, int] | None:
+        try:
+            slope, intercept = np.polyfit(np.array([y1, y2]), np.array([x1, x2]), 1)
+        except np.linalg.LinAlgError:
+            return None
+        x_bottom = int(slope * y_bottom + intercept)
+        x_top = int(slope * y_top + intercept)
+        return x_bottom, y_bottom, x_top, y_top
+
+    def _camera_lane_overlay(self, frame_bgr, left_line, right_line):
+        if left_line is None or right_line is None:
+            return frame_bgr.copy()
+        overlay = frame_bgr.copy()
+        polygon = np.array(
+            [[
+                (left_line[0], left_line[1]),
+                (left_line[2], left_line[3]),
+                (right_line[2], right_line[3]),
+                (right_line[0], right_line[1]),
+            ]],
+            dtype=np.int32,
         )
-        return (
-            int(projected[0][0]),
-            int(projected[0][1]),
-            int(projected[1][0]),
-            int(projected[1][1]),
-        )
-
-    def _project_x_at_y(self, x: int, y: int, inverse_matrix: np.ndarray) -> int:
-        projected = self._project_points(np.array([[x, y]], dtype=np.float32), inverse_matrix)
-        return int(projected[0][0])
-
-    def _project_points(self, points: np.ndarray, matrix: np.ndarray) -> np.ndarray:
-        shaped = points.reshape(-1, 1, 2)
-        projected = cv2.perspectiveTransform(shaped, matrix)
-        return projected.reshape(-1, 2)
-
-    def _project_lane_area(self, frame_bgr, left_fit, right_fit, inverse_matrix):
-        height, width = frame_bgr.shape[:2]
-        plot_y = np.linspace(int(height * 0.08), height - 1, height)
-        left_x = np.polyval(left_fit, plot_y)
-        right_x = np.polyval(right_fit, plot_y)
-
-        left_points = np.array([np.transpose(np.vstack([left_x, plot_y]))])
-        right_points = np.array([np.flipud(np.transpose(np.vstack([right_x, plot_y])))])
-        polygon = np.hstack((left_points, right_points)).astype(np.int32)
-
-        lane_fill = np.zeros((height, width, 3), dtype=np.uint8)
-        cv2.fillPoly(lane_fill, [polygon], (0, 120, 0))
-        unwarped_fill = unwarp_birds_eye(lane_fill, inverse_matrix)
-        overlay = cv2.addWeighted(frame_bgr, 1.0, unwarped_fill, 0.35, 0)
-        return polygon, overlay
+        fill = np.zeros_like(frame_bgr)
+        cv2.fillPoly(fill, polygon, (0, 120, 0))
+        return cv2.addWeighted(overlay, 1.0, fill, 0.35, 0)
