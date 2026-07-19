@@ -9,7 +9,7 @@ A virtual lane-driving bot that combines:
 - driving performance metrics
 - optional demo video recording
 
-The project runs in a lightweight `pygame` window. The bot sees a synthetic road through a virtual camera, detects lane position with OpenCV, detects red lane obstacles when enabled, smooths the lane error, and uses PID steering plus obstacle-aware throttle control.
+The project runs in a lightweight `pygame` window. The bot sees a synthetic road through a virtual camera, detects lane position with OpenCV, detects red vehicle obstacles when enabled, smooths the lane error, and uses PID steering plus obstacle-aware throttle control. The debug view renders the ego car, lane overlays, and obstacle vehicles so demos look like an actual driving scene.
 
 ## Run Locally
 
@@ -52,7 +52,7 @@ Road conditions:
 - `night`: darker scene with dimmer lane paint.
 - `missing-lanes`: broken outer lane boundaries.
 
-Enable red obstacle detection and obstacle-aware speed/avoidance control:
+Enable red vehicle obstacle detection and obstacle-aware speed/avoidance control:
 
 ```bash
 python main.py --road lane-shift --obstacles
@@ -69,9 +69,9 @@ python main.py --road lane-shift --obstacle-mode side
 Obstacle modes:
 
 - `none`: no obstacles.
-- `single`: one centered obstacle cycles toward the bot.
-- `frequent`: centered obstacles appear more often.
-- `side`: obstacles appear offset toward one side of the lane so the bot can test relevance and avoidance.
+- `single`: one centered vehicle obstacle cycles toward the bot.
+- `frequent`: centered vehicle obstacles appear more often.
+- `side`: vehicle obstacles appear offset toward one side of the lane so the bot can test relevance and avoidance.
 
 Detector, road, obstacle, and condition options can be combined:
 
@@ -178,10 +178,10 @@ Virtual-Lane-Driving-Bot/
 
 - `benchmark.py`: runs headless benchmarks across road scenarios, road conditions, and obstacle modes, then exports CSV results.
 - `main.py`: connects simulator, camera, lane detector, obstacle detector, driver, metrics, debug overlay, and optional AVI recording.
-- `simulator/`: virtual road generation, harder visual road conditions, obstacle rendering, car motion, window rendering, and camera capture.
+- `simulator/`: virtual road generation, harder visual road conditions, vehicle obstacle rendering, car motion, window rendering, and camera capture.
 - `vision/`: OpenCV lane and obstacle detection modules inspired by the referenced lane detection repos.
 - `control/`: smoothed lane-error steering, PID control, obstacle-aware speed control, avoidance bias, and throttle decisions.
-- `debug/`: metrics and visual overlays for lane lines, lane center, obstacles, steering, collisions, and telemetry.
+- `debug/`: metrics and visual overlays for lane lines, lane center, ego car, obstacle vehicles, steering, collisions, and telemetry.
 - `assets/roads/`: road maps, lane textures, or generated driving scenes.
 
 ## Current Driving Loop
