@@ -1,21 +1,43 @@
 """Entry point for the virtual lane driving bot."""
 
+import argparse
+
 from control.driver import Driver
 from debug.visualizer import DebugVisualizer
 from simulator.camera import VirtualCamera
 from simulator.car import Car
 from simulator.road import VirtualRoad
 from simulator.world import World
+from vision.lane_detector_advanced import AdvancedLaneDetector
 from vision.lane_detector_basic import BasicLaneDetector
+
+
+def build_detector(name: str):
+    """Create the selected lane detector."""
+    if name == "basic":
+        return BasicLaneDetector()
+    return AdvancedLaneDetector()
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the virtual lane driving bot.")
+    parser.add_argument(
+        "--detector",
+        choices=("advanced", "basic"),
+        default="advanced",
+        help="Lane detector pipeline to use.",
+    )
+    return parser.parse_args()
 
 
 def main() -> None:
     """Run the virtual lane-following bot."""
+    args = parse_args()
     world = World()
     road = VirtualRoad()
     car = Car()
     camera = VirtualCamera()
-    detector = BasicLaneDetector()
+    detector = build_detector(args.detector)
     driver = Driver()
     visualizer = DebugVisualizer()
 
