@@ -6,7 +6,7 @@ from control.driver import Driver
 from debug.visualizer import DebugVisualizer
 from simulator.camera import VirtualCamera
 from simulator.car import Car
-from simulator.road import VirtualRoad
+from simulator.road import ROAD_PROFILES, VirtualRoad
 from simulator.world import World
 from vision.lane_detector_advanced import AdvancedLaneDetector
 from vision.lane_detector_basic import BasicLaneDetector
@@ -27,6 +27,12 @@ def parse_args() -> argparse.Namespace:
         default="advanced",
         help="Lane detector pipeline to use.",
     )
+    parser.add_argument(
+        "--road",
+        choices=ROAD_PROFILES,
+        default="s-curve",
+        help="Virtual road scenario to run.",
+    )
     return parser.parse_args()
 
 
@@ -34,7 +40,7 @@ def main() -> None:
     """Run the virtual lane-following bot."""
     args = parse_args()
     world = World()
-    road = VirtualRoad()
+    road = VirtualRoad(profile=args.road)
     car = Car()
     camera = VirtualCamera()
     detector = build_detector(args.detector)
@@ -49,6 +55,7 @@ def main() -> None:
             dt = world.tick()
             frame = camera.capture(road, car)
             lane_info = detector.detect(frame)
+            lane_info["road"] = road.profile
             steering, throttle = driver.drive(lane_info, dt)
             car.update(steering, throttle, dt)
             debug_frame = visualizer.draw(frame, lane_info, steering, throttle)
